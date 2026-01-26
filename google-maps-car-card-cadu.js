@@ -541,7 +541,8 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         const isStopped = speed !== null && !isNaN(speed) && speed <= 0.1;
         
         if (isStopped) {
-            rotation = 999;
+            // Se parado, mantem a ultima rotacao valida se existir, senao 999
+            rotation = lastPosition.rotation !== 999 ? lastPosition.rotation : 999;
         } else {
             deltaX = location.lng() - lastPosition.lng;
             deltaY = location.lat() - lastPosition.lat;
@@ -549,7 +550,8 @@ class GoogleMapsCarCardCadu extends HTMLElement {
             if (Math.abs(deltaX) > 0.00001 || Math.abs(deltaY) > 0.00001) {
               rotation = Math.atan2(deltaY, deltaX) * (180 / Math.PI);
             } else {
-              rotation = 999;
+              // Se nao houver deslocamento significativo mas nao esta "parado" pelo sensor, mantem ultima
+              rotation = lastPosition.rotation;
             }
         }
       } else {
@@ -563,7 +565,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       this.lastPositions[entityConfig.entity] = {
         lat: location.lat(),
         lng: location.lng(),
-        rotation: rotation === 999 && lastPosition ? lastPosition.rotation : rotation, // Preserva ultima rotacao valida apenas para calculo futuro se necessario?
+        rotation: rotation,
       };
 
       const markerTitle = this._getEntityDisplayName(entityConfig, entity);
@@ -588,13 +590,14 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         let cssRotation = 0;
         if (rotation !== 999) {
           cssRotation = 180 - rotation; // Assumindo imagem virada para a esquerda
+        } else if (lastPosition && lastPosition.rotation !== 999) {
+           // Se rotation atual é 999 (parado), tenta usar a ultima valida para manter a orientacao
+           cssRotation = 180 - lastPosition.rotation;
         } else {
           cssRotation = 0; // Sem rotacao
         }
 
-        const imageToUse = (rotation !== 999 && entityConfig.image_rotated)
-          ? entityConfig.image_rotated
-          : (entityConfig.image || entity.attributes.entity_picture || "");
+        const imageToUse = entityConfig.image_rotated || entityConfig.image || entity.attributes.entity_picture || "";
 
         if (!marker) {
           // Criar elemento HTML para o icone rotacionado
@@ -742,54 +745,23 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         // Se a rotacao da legenda for desejada (para acompanhar a direcao, mas "sem rotacionar ela" = ficar em pe?)
         // O usuario disse: "a legenda pode ficar sempre pra cima do carro, tipo, rotacionar a posição da legenda tb, mas sem rotacionar ela"
         // Isso significa que a posicao (x,y) deve girar em torno do centro do carro, mas o texto deve ficar horizontal.
-        // Se o carro gira 90 graus (para baixo), a "frente" do carro muda. Se a legenda deve ficar "pra cima do carro" (na frente do carro?), ela deve mudar de posicao.
-        // MAS, geralmente "pra cima" significa "Norte da tela" ou "Acima do icone".
-        // Se o usuario quer que a legenda acompanhe a "cabeca" do carro (frente), entao precisamos calcular a nova posicao (x,y) baseada no angulo.
         
-        if (shouldRotate && rotation !== 999) {
+        let rotationToUse = rotation;
+        if (rotation === 999 && lastPosition && lastPosition.rotation !== 999) {
+            rotationToUse = lastPosition.rotation;
+        }
+
+        if (shouldRotate && rotationToUse !== 999) {
              // Raio de distancia do centro (metade do icone + margem)
              const radius = 40; 
-             // Converter rotacao (graus) para radianos. 
-             // O carro esta rotacionado por `rotation`. A imagem original aponta para Esquerda (180 deg).
-             // Se rotation=0 (Leste), cssRotation = 180.
-             // Vamos simplificar: queremos a legenda na direcao do movimento.
-             // Rotation é o angulo do movimento (atan2 dy, dx).
-             // Mas atan2 retorna angulo trigonometrico (0 = Leste/Direita, 90 = Sul/Baixo no canvas Y?, nao, Y cresce para baixo no HTML/Canvas, mas atan2 normal é cartesiano Y pra cima)
-             // No Google Maps: Lat cresce pra cima (Norte), Lng pra direita (Leste).
-             // DeltaY = lat2 - lat1. DeltaX = lng2 - lng1.
-             // Se DeltaY > 0 (Norte), DeltaX = 0. atan2(1, 0) = PI/2 (90 graus).
-             // Se queremos a legenda "na frente", usamos esse angulo.
-             // Mas a coordenada de tela Y cresce para BAIXO.
-             // Entao um deslocamento para o Norte (Lat aumenta) significa Y diminui.
              
-             // Vamos recalcular o angulo de tela.
-             // Ou simplesmente usar o `rotation` calculado e projetar um offset.
-             // `rotation` foi calculado com lat/lng. 
-             // Conversao simples: angulo em graus. 0 = Leste. 90 = Norte (no calculo lat/lng original).
-             // Espere, Math.atan2(y, x). Se y (lat) aumenta, é Norte.
-             
-             // Para posicionar a div na tela:
-             // x = center_x + radius * cos(angle)
-             // y = center_y - radius * sin(angle)  (menos porque Y da tela é invertido em relacao ao cartesiano)
-             
-             const rad = rotation * (Math.PI / 180);
+             const rad = rotationToUse * (Math.PI / 180);
              const offsetX = radius * Math.cos(rad);
              const offsetY = -radius * Math.sin(rad); // Y tela invertido
              
              div.style.left = `${position.x + offsetX}px`;
              div.style.top = `${position.y + offsetY}px`;
              
-             // Ajuste fino para centralizar a div no ponto calculado (translate -50%, -50% ao inves de -50%, -100%)
-             // O CSS atual tem transform: translate(-50%, -100%); (base-center alignment)
-             // Se a legenda esta "na frente", talvez queiramos alinhar de forma diferente dependendo do angulo, mas manter centralizado é mais seguro.
-             // Vamos manter o CSS padrao, mas ajustar o offset para compensar o translate -100% (que joga pra cima).
-             
-             // Se a legenda esta EM CIMA (Norte): offsetY negativo. translate -100% joga mais pra cima ainda. OK.
-             // Se a legenda esta EM BAIXO (Sul): offsetY positivo. translate -100% joga pra cima (em cima do ponto). Ruim.
-             // Se a legenda esta a DIREITA (Leste): offsetX positivo. translate -100% joga pra cima.
-             
-             // Melhor abordagem: posicionar no centro + vetor direcao, e remover o translate vertical fixo se possivel, ou ajustar.
-             // Como nao podemos mudar o CSS da classe facilmente dinamicamente sem afetar outros, vamos mudar o estilo inline.
              div.style.transform = "translate(-50%, -50%)"; // Centralizar no ponto alvo
         } else {
              // Comportamento padrao (acima do icone)
