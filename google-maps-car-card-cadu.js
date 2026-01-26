@@ -268,6 +268,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         modo_noturno: typeof this._config.modo_noturno === "string" ? this._config.modo_noturno : null,
         follow_entity:
           typeof this._config.follow_entity === "string" ? this._config.follow_entity : null,
+        rotate_image: this._config.rotate_image === true,
       };
       
       // Carregar estado salvo do localStorage antes de inicializar valores padrão
@@ -505,7 +506,6 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       : this._uiState.entityVisibility[entityConfig.entity] !== false;
       
     if (entity && entity.state !== "unavailable" && conditionMet) {
-      // Verificar se tem coordenadas
       if (!entity.attributes.latitude || !entity.attributes.longitude) return;
       
       const location = new google.maps.LatLng(
@@ -530,7 +530,8 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       if (lastPosition) {
         deltaX = location.lng() - lastPosition.lng;
         deltaY = location.lat() - lastPosition.lat;
-        if ((Math.abs(deltaX) > 0.00001 || Math.abs(deltaY) > 0.00001) && speed > 0) {
+        // Se houver deslocamento significativo, atualiza a rotacao independente da velocidade
+        if (Math.abs(deltaX) > 0.00001 || Math.abs(deltaY) > 0.00001) {
           rotation = Math.atan2(deltaY, deltaX) * (180 / Math.PI);
         } else {
           rotation = lastPosition.rotation;
@@ -547,25 +548,113 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       };
 
       const markerTitle = this._getEntityDisplayName(entityConfig, entity);
+      const shouldRotate = this._config.rotate_image === true;
 
-      if (!marker) {
-        const icon = {
-          url: entityConfig.image || entity.attributes.entity_picture || "",
-          scaledSize: new google.maps.Size(60, 60),
-          anchor: new google.maps.Point(30, 30),
-        };
-
-        marker = new google.maps.Marker({
-          position: location,
-          map: this._map,
-          title: markerTitle,
-          icon: icon,
-        });
-
-        this.markers[entityConfig.entity] = marker;
+      // Handle Marker Types Swapping
+      if (shouldRotate) {
+        if (marker && marker instanceof google.maps.Marker) {
+          marker.setMap(null);
+          marker = null;
+        }
       } else {
-        marker.setPosition(location);
-        marker.setTitle(markerTitle);
+        // Check if marker is OverlayView (custom)
+        if (marker && typeof marker.draw === "function" && !(marker instanceof google.maps.Marker)) {
+          marker.setMap(null);
+          marker = null;
+        }
+      }
+
+      if (shouldRotate) {
+        // --- Custom Overlay Implementation ---
+        let cssRotation = 0;
+        if (rotation !== 999) {
+          cssRotation = 180 - rotation;
+        } else {
+          cssRotation = 180;
+        }
+
+        if (!marker) {
+          marker = new google.maps.OverlayView();
+          marker.position = location;
+          marker.rotation = cssRotation;
+          marker.imageUrl = entityConfig.image || entity.attributes.entity_picture || "";
+          
+          marker.onAdd = function() {
+            const div = document.createElement("div");
+            div.style.position = "absolute";
+            div.style.width = "100px";
+            div.style.height = "120px";
+            // Image 100x100 top aligned
+            div.innerHTML = `<img src="${this.imageUrl}" style="width: 100px; height: 100px; display: block;">`;
+            this.div_ = div;
+            const panes = this.getPanes();
+            panes.overlayLayer.appendChild(div);
+          };
+
+          marker.draw = function() {
+            const overlayProjection = this.getProjection();
+            if (!overlayProjection || !this.position) return;
+            const pos = overlayProjection.fromLatLngToDivPixel(this.position);
+            const div = this.div_;
+            if (div) {
+              // Center the container (100x120) on the point
+              div.style.left = (pos.x - 50) + "px";
+              div.style.top = (pos.y - 60) + "px";
+              div.style.transform = `rotate(${this.rotation}deg)`;
+            }
+          };
+
+          marker.onRemove = function() {
+            if (this.div_) {
+              this.div_.parentNode.removeChild(this.div_);
+              this.div_ = null;
+            }
+          };
+          
+          // Add helper for bounds
+          marker.getPosition = function() {
+            return this.position;
+          };
+
+          marker.setMap(this._map);
+          this.markers[entityConfig.entity] = marker;
+        } else {
+          marker.position = location;
+          marker.rotation = cssRotation;
+          
+          // Update image if changed
+          const newUrl = entityConfig.image || entity.attributes.entity_picture || "";
+          if (marker.imageUrl !== newUrl) {
+            marker.imageUrl = newUrl;
+            if (marker.div_) {
+              const img = marker.div_.querySelector("img");
+              if (img) img.src = newUrl;
+            }
+          }
+          
+          marker.draw();
+        }
+      } else {
+        // --- Standard Marker Implementation ---
+        if (!marker) {
+          const icon = {
+            url: entityConfig.image || entity.attributes.entity_picture || "",
+            scaledSize: new google.maps.Size(60, 60),
+            anchor: new google.maps.Point(30, 30),
+          };
+
+          marker = new google.maps.Marker({
+            position: location,
+            map: this._map,
+            title: markerTitle,
+            icon: icon,
+          });
+
+          this.markers[entityConfig.entity] = marker;
+        } else {
+          marker.setPosition(location);
+          marker.setTitle(markerTitle);
+        }
       }
 
       // Remove existing InfoBox if it exists
@@ -594,7 +683,8 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         const position = overlayProjection.fromLatLngToDivPixel(location);
         const div = this.div_;
         div.style.left = `${position.x}px`;
-        div.style.top = `${position.y - 20}px`; // Ajustar conforme necessario para posicionar acima do marcador
+        const yOffset = shouldRotate ? 70 : 20; // Ajustar conforme o tamanho do marcador
+        div.style.top = `${position.y - yOffset}px`;
       };
       infoBox.onRemove = function () {
         this.div_.parentNode.removeChild(this.div_);
@@ -953,6 +1043,11 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
         selector: { entity: { domain: "input_boolean" } },
       },
       {
+        name: "rotate_image",
+        label: "Rotacionar imagem do carro (beta)",
+        selector: { boolean: {} },
+      },
+      {
         name: "max_height",
         label: "Altura máxima do mapa em pixels (opcional)",
         selector: { number: { min: 100, max: 2000, step: 10, unit_of_measurement: "px" } },
@@ -1022,6 +1117,7 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
         follow_entity: config.follow_entity || "",
         modo_noturno: config.modo_noturno || "",
         transito: config.transito || "",
+        rotate_image: config.rotate_image === true,
         max_height: config.max_height || null,
         max_width: config.max_width || null,
         entities: normalizedEntities,
@@ -1042,6 +1138,7 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
         follow_entity: config.follow_entity || "",
         modo_noturno: config.modo_noturno || "",
         transito: config.transito || "",
+        rotate_image: config.rotate_image === true,
         max_height: config.max_height || null,
         max_width: config.max_width || null,
         entities: Array.isArray(config.entities) ? config.entities : [],
