@@ -291,8 +291,12 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       // Se o mapa já existe, atualizar os controles com os valores carregados
       if (this._map && this.controlsContainer) {
         this._renderControls();
-        this._applyNightMode();
-        this._toggleTrafficLayer();
+        // Aplicar modo noturno e trânsito após renderizar controles para garantir que o estado está correto
+        // Usar requestAnimationFrame para garantir que o DOM está atualizado
+        requestAnimationFrame(() => {
+          this._applyNightMode();
+          this._toggleTrafficLayer();
+        });
       }
       
       if (!this._config.api_key) {
@@ -348,8 +352,11 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       zoom: 17, // Zoom inicial
       streetViewControl: false, // Desabilita o controle de Street View
     });
-    this._applyNightMode();
     this._renderControls();
+    // Aplicar modo noturno após renderizar controles para garantir que o estado está carregado
+    setTimeout(() => {
+      this._applyNightMode();
+    }, 50);
 
     if (this._config.entities) {
       this._config.entities.forEach((entityConfig) => {
@@ -387,6 +394,12 @@ class GoogleMapsCarCardCadu extends HTMLElement {
 
   _applyNightMode() {
     if (!this._map) return;
+    
+    // Aguardar um pouco se o hass ainda não estiver disponível
+    if (!this._hass && this._config.modo_noturno && typeof this._config.modo_noturno === "string") {
+      setTimeout(() => this._applyNightMode(), 100);
+      return;
+    }
     
     const nightModeStyle = [
       { elementType: "geometry", stylers: [{ color: "#212121" }] },
@@ -594,7 +607,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
 
       // Ajustar o centro do mapa se a opcao de seguir estiver ativada
       if (this._shouldFollow()) {
-        this._map.setCenter(location);
+        this._centerOnMarkerWithPadding(location);
       }
     } else {
       if (this.markers[entityConfig.entity]) {
@@ -742,11 +755,42 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       bounds.extend(marker.getPosition());
     });
 
-    this._map.fitBounds(bounds);
+    // Se seguir está ativado, usar padding para mostrar as info boxes
+    const padding = this._shouldFollow() ? { top: 100, right: 50, bottom: 50, left: 50 } : 0;
+    
+    this._map.fitBounds(bounds, padding);
 
     // Listener para apos ajuste dos limites
     google.maps.event.addListenerOnce(this._map, "bounds_changed", () => {
       const maxZoom = 18; // Define o zoom maximo que voce deseja permitir
+      if (this._map.getZoom() > maxZoom) {
+        this._map.setZoom(maxZoom);
+      }
+    });
+  }
+
+  _centerOnMarkerWithPadding(location) {
+    if (!this._map) return;
+    
+    // Criar bounds com padding para mostrar as info boxes acima do marcador
+    const bounds = new google.maps.LatLngBounds();
+    bounds.extend(location);
+    
+    // Estender um pouco para cima (norte) para dar espaço para as info boxes
+    const paddingLat = 0.002; // Aproximadamente 200 metros
+    const paddingLng = 0.001; // Aproximadamente 100 metros
+    
+    bounds.extend(new google.maps.LatLng(location.lat() + paddingLat, location.lng()));
+    bounds.extend(new google.maps.LatLng(location.lat() - paddingLat * 0.3, location.lng()));
+    bounds.extend(new google.maps.LatLng(location.lat(), location.lng() + paddingLng));
+    bounds.extend(new google.maps.LatLng(location.lat(), location.lng() - paddingLng));
+    
+    // Usar fitBounds com padding para garantir espaço para as info boxes
+    this._map.fitBounds(bounds, { top: 100, right: 50, bottom: 50, left: 50 });
+    
+    // Limitar zoom máximo
+    google.maps.event.addListenerOnce(this._map, "bounds_changed", () => {
+      const maxZoom = 18;
       if (this._map.getZoom() > maxZoom) {
         this._map.setZoom(maxZoom);
       }
