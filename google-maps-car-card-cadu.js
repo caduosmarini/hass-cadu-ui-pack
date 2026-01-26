@@ -79,6 +79,8 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       #map {
         width: 100%;
         height: 450px; /* Padrao para dispositivos moveis */
+        border-radius: 0 0 6px 6px;
+        overflow: hidden;
       }
 
       @media (min-width: 768px) {
@@ -111,20 +113,16 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         font-size: 12px;
       }
       .map-controls {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
         background: rgba(0, 0, 0, 0.7);
         color: #fff;
         padding: 8px 12px;
-        border-radius: 0 0 6px 6px;
+        border-radius: 6px 6px 0 0;
         font-size: 12px;
-        z-index: 2;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        margin-bottom: 0;
       }
       .map-controls label {
         display: flex;
@@ -147,12 +145,12 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       }
     `;
     this.shadowRoot.appendChild(style);
-    this.mapContainer = document.createElement("div");
-    this.mapContainer.id = "map";
-    this.shadowRoot.appendChild(this.mapContainer);
     this.controlsContainer = document.createElement("div");
     this.controlsContainer.className = "map-controls";
     this.shadowRoot.appendChild(this.controlsContainer);
+    this.mapContainer = document.createElement("div");
+    this.mapContainer.id = "map";
+    this.shadowRoot.appendChild(this.mapContainer);
     this.markers = {}; // Armazena marcadores por entidade
     this.infoBoxes = {}; // Armazena InfoBoxes por entidade
     this.lastPositions = {}; // Armazena a ultima posicao de cada entidade
@@ -606,17 +604,18 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
       const normalized = this._normalizeConfig(config || {});
       this._config = normalized;
       
-      // Se já está renderizado, atualizar o form
-      if (this._rendered) {
+      // Se já está renderizado e hass está disponível, atualizar o form
+      if (this._rendered && this._hass) {
         this._syncFormData();
-      } else {
-        // Se não está renderizado, renderizar com os dados normalizados
+      } else if (!this._rendered && this._hass) {
+        // Se não está renderizado mas hass está disponível, renderizar
         this._render();
       }
+      // Se hass ainda não está disponível, aguardar que seja setado
     } catch (error) {
       console.error("Erro ao definir configuração:", error, config);
       this._config = config || {};
-      if (this._rendered) {
+      if (this._rendered && this._hass) {
         this._syncFormData();
       }
     }
@@ -624,6 +623,10 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
+    if (!this._hass) {
+      return;
+    }
+    
     if (this._rendered && !this._updating) {
       this._syncFormData();
     } else if (!this._rendered && this._config) {
@@ -632,35 +635,33 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
   }
 
   _render() {
+    if (!this._hass) {
+      return; // Não renderizar se hass não estiver disponível
+    }
+    
     this._rendered = true;
     this.innerHTML = "";
     const form = document.createElement("ha-form");
     form.hass = this._hass;
     
     // Garantir que os dados estão normalizados antes de passar para o form
-    // Normalizar novamente para garantir que está correto
-    let normalizedConfig = this._normalizeConfig(this._config || {});
-    
-    // Se ainda houver chaves numéricas após normalização, tentar novamente
-    if (normalizedConfig.entities && normalizedConfig.entities.length > 0) {
-      const stillHasNumericKeys = normalizedConfig.entities.some((ent) => 
-        ent && typeof ent === "object" && Object.keys(ent).some((key) => /^\d+$/.test(key))
-      );
-      if (stillHasNumericKeys) {
-        console.warn("Ainda há chaves numéricas após normalização, tentando novamente...");
-        normalizedConfig = this._normalizeConfig(normalizedConfig);
-      }
-    }
+    const normalizedConfig = this._normalizeConfig(this._config || {});
     
     // Criar uma cópia profunda para evitar problemas de referência
-    const formData = JSON.parse(JSON.stringify(normalizedConfig));
+    let formData;
+    try {
+      formData = JSON.parse(JSON.stringify(normalizedConfig));
+    } catch (error) {
+      console.error("Erro ao criar cópia dos dados:", error);
+      formData = { ...normalizedConfig };
+    }
     
-    // Debug: verificar dados antes de passar para o form
-    console.log("Dados sendo passados para o form:", formData);
-    
-    form.data = formData;
     form.schema = this._buildSchema();
     form.computeLabel = (schema) => schema.label || schema.name;
+    
+    // Definir os dados após definir o schema
+    form.data = formData;
+    
     form.addEventListener("value-changed", (event) => {
       if (!this._updating) {
         try {
@@ -676,19 +677,32 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
         }
       }
     });
+    
     this.appendChild(form);
     this._form = form;
+    
+    // Aguardar um frame para garantir que o form está totalmente renderizado
+    requestAnimationFrame(() => {
+      if (this._form && this._form.data !== formData) {
+        this._form.data = formData;
+      }
+    });
   }
 
   _syncFormData() {
-    if (this._form && !this._updating) {
+    if (this._form && !this._updating && this._hass) {
       try {
         this._updating = true;
         this._form.hass = this._hass;
         // Normalizar configuração antes de sincronizar com o form
         const normalizedConfig = this._normalizeConfig(this._config || {});
         // Criar uma cópia profunda para evitar problemas de referência
-        const formData = JSON.parse(JSON.stringify(normalizedConfig));
+        let formData;
+        try {
+          formData = JSON.parse(JSON.stringify(normalizedConfig));
+        } catch (error) {
+          formData = { ...normalizedConfig };
+        }
         this._form.data = formData;
       } catch (error) {
         console.error("Erro ao sincronizar dados do form:", error, this._config);
@@ -770,29 +784,40 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
 
   _normalizeConfig(config) {
     if (!config || typeof config !== "object") {
-      return { entities: [] };
+      return { 
+        api_key: "",
+        follow_entity: "",
+        entities: []
+      };
     }
     try {
+      // Normalizar entidades
+      const normalizedEntities = normalizeEntitiesConfig(config.entities || []);
+      
+      // Criar objeto normalizado preservando todos os campos
       const normalized = {
-        ...config,
-        entities: normalizeEntitiesConfig(config.entities || []),
+        api_key: config.api_key || "",
+        follow_entity: config.follow_entity || "",
+        modo_noturno: config.modo_noturno || "",
+        transito: config.transito || "",
+        entities: normalizedEntities,
       };
       
-      // Debug: verificar se a normalização funcionou
-      if (config.entities && config.entities.length > 0) {
-        const hasNumericKeys = config.entities.some((ent) => 
-          ent && typeof ent === "object" && Object.keys(ent).some((key) => /^\d+$/.test(key))
-        );
-        if (hasNumericKeys) {
-          console.log("Configuração normalizada:", normalized);
+      // Preservar outros campos que possam existir
+      Object.keys(config).forEach((key) => {
+        if (!normalized.hasOwnProperty(key)) {
+          normalized[key] = config[key];
         }
-      }
+      });
       
       return normalized;
     } catch (error) {
       console.error("Erro ao normalizar configuração:", error, config);
       return {
-        ...config,
+        api_key: config.api_key || "",
+        follow_entity: config.follow_entity || "",
+        modo_noturno: config.modo_noturno || "",
+        transito: config.transito || "",
         entities: Array.isArray(config.entities) ? config.entities : [],
       };
     }
