@@ -109,6 +109,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       nightModeEnabled: false,
       followEnabled: false,
       rotateImageEnabled: false,
+      arrowEnabled: true,
       entityVisibility: {},
     };
     this._updateStyles();
@@ -230,6 +231,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
             nightModeEnabled: parsed.nightModeEnabled === true,
             followEnabled: parsed.followEnabled === true,
             rotateImageEnabled: parsed.rotateImageEnabled === true,
+            arrowEnabled: parsed.arrowEnabled !== false, // Padrão true
             entityVisibility: parsed.entityVisibility || {},
           };
         }
@@ -292,6 +294,9 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       }
       if (this._uiState.rotateImageEnabled === undefined) {
         this._uiState.rotateImageEnabled = false;
+      }
+      if (this._uiState.arrowEnabled === undefined) {
+        this._uiState.arrowEnabled = true;
       }
       this._initializeEntityVisibility();
       
@@ -706,10 +711,12 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       infoBox.onAdd = function () {
         const div = document.createElement("div");
         div.className = "info-box";
+        const arrowHtml = this._parent._uiState.arrowEnabled 
+          ? `<div class="arrow-box">${arrow} <!-- seta --></div>` 
+          : "";
+        
         div.innerHTML = `
-          <div class="arrow-box">
-            ${arrow} <!-- seta -->
-          </div>
+          ${arrowHtml}
           ${infoBoxText}
         `;
         // <br> ${rotation} - ${deltaX} - ${deltaY}
@@ -717,37 +724,36 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         const panes = this.getPanes();
         panes.overlayLayer.appendChild(div);
       };
+      // Bind this context to access _uiState inside onAdd
+      infoBox._parent = this;
       infoBox.draw = function () {
         const overlayProjection = this.getProjection();
         const position = overlayProjection.fromLatLngToDivPixel(location);
         const div = this.div_;
-        div.style.left = `${position.x}px`;
-        // Ajuste fixo para 20px (tamanho padrao do icone 60x60, anchor 30,30 -> topo é y-30. InfoBox translate -100% Y)
-        // Se quisermos um pouco acima do icone: y - 30 (topo do icone) - 5 (margem) = y - 35
-        // A implementacao original usava y - 20
-        const yOffset = 35; 
-        div.style.top = `${position.y - yOffset}px`;
         
-        // Se a rotacao da legenda for desejada (para acompanhar a direcao, mas "sem rotacionar ela" = ficar em pe?)
-        // O usuario disse: "a legenda pode ficar sempre pra cima do carro, tipo, rotacionar a posição da legenda tb, mas sem rotacionar ela"
-        // Isso significa que a posicao (x,y) deve girar em torno do centro do carro, mas o texto deve ficar horizontal.
+        let xOffset = 0;
+        let yOffset = -35; // Padrão: 35px acima (Up) do centro
         
+        // Se rotação ativada, calcular posição relativa ao "teto" do carro
         if (shouldRotate && rotation !== 999) {
-             // Raio de distancia do centro (metade do icone + margem)
-             const radius = 40; 
+             let cssRotation = 180 - rotation; // O mesmo calculo usado para a imagem
+             const radius = 40; // Distancia do centro (30px raio + 10px margem)
              
-             const rad = rotation * (Math.PI / 180);
-             const offsetX = radius * Math.cos(rad);
-             const offsetY = -radius * Math.sin(rad); // Y tela invertido
+             // Converter para radianos
+             const rad = cssRotation * (Math.PI / 180);
              
-             div.style.left = `${position.x + offsetX}px`;
-             div.style.top = `${position.y + offsetY}px`;
-             
-             div.style.transform = "translate(-50%, -50%)"; // Centralizar no ponto alvo
-        } else {
-             // Comportamento padrao (acima do icone)
-             div.style.transform = "translate(-50%, -100%)";
+             // Calcular offsets baseados na rotação do CSS
+             // 0 graus (Original/Esquerda) -> x=0, y=-R (Cima)
+             // 180 graus (Direita) -> x=0, y=R (Baixo)
+             xOffset = radius * Math.sin(rad);
+             yOffset = -radius * Math.cos(rad);
         }
+
+        div.style.left = `${position.x + xOffset}px`;
+        div.style.top = `${position.y + yOffset}px`;
+        
+        // Centralizar a div no ponto calculado
+        div.style.transform = "translate(-50%, -50%)";
       };
       infoBox.onRemove = function () {
         this.div_.parentNode.removeChild(this.div_);
@@ -859,6 +865,23 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     rotateLabel.appendChild(rotateCheckbox);
     rotateLabel.appendChild(document.createTextNode("Rotação"));
     this.controlsContainer.appendChild(rotateLabel);
+
+    const arrowCheckbox = document.createElement("input");
+    arrowCheckbox.type = "checkbox";
+    arrowCheckbox.checked = this._uiState.arrowEnabled;
+    arrowCheckbox.addEventListener("change", () => {
+      this._uiState.arrowEnabled = arrowCheckbox.checked;
+      this._saveUIState();
+      if (this._config.entities) {
+        this._config.entities.forEach((entityConfig) => {
+          this._addOrUpdateMarker(entityConfig);
+        });
+      }
+    });
+    const arrowLabel = document.createElement("label");
+    arrowLabel.appendChild(arrowCheckbox);
+    arrowLabel.appendChild(document.createTextNode("Seta"));
+    this.controlsContainer.appendChild(arrowLabel);
 
     if (this._config.entities) {
       this._config.entities.forEach((entityConfig) => {
