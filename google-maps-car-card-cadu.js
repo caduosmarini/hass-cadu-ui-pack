@@ -385,7 +385,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
   }
 
   _shouldFollow() {
-    if (this._config.follow_entity) {
+    if (this._config.follow_entity && this._config.follow_entity !== "") {
       const followEntity = this._hass.states[this._config.follow_entity];
       return followEntity && followEntity.state === "on";
     }
@@ -396,7 +396,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     if (!this._map) return;
     
     // Aguardar um pouco se o hass ainda não estiver disponível
-    if (!this._hass && this._config.modo_noturno && typeof this._config.modo_noturno === "string") {
+    if (!this._hass && this._config.modo_noturno && typeof this._config.modo_noturno === "string" && this._config.modo_noturno !== "") {
       setTimeout(() => this._applyNightMode(), 100);
       return;
     }
@@ -470,7 +470,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
 
     const configNightMode = this._config.modo_noturno;
     const nightMode =
-      typeof configNightMode === "string"
+      typeof configNightMode === "string" && configNightMode !== ""
         ? this._hass.states[configNightMode]?.state === "on"
         : this._uiState.nightModeEnabled;
     this._map.setOptions({
@@ -483,7 +483,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     
     const configTraffic = this._config.transito;
     const trafficEnabled =
-      typeof configTraffic === "string"
+      typeof configTraffic === "string" && configTraffic !== ""
         ? this._hass.states[configTraffic]?.state === "on"
         : this._uiState.trafficEnabled;
     if (trafficEnabled) {
