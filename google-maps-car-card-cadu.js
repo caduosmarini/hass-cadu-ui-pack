@@ -91,22 +91,55 @@ class GoogleMapsCarCardCadu extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
-    const style = document.createElement("style");
-    style.textContent = `
+    this._styleElement = document.createElement("style");
+    this.shadowRoot.appendChild(this._styleElement);
+    this.controlsContainer = document.createElement("div");
+    this.controlsContainer.className = "map-controls";
+    this.shadowRoot.appendChild(this.controlsContainer);
+    this.mapContainer = document.createElement("div");
+    this.mapContainer.id = "map";
+    this.shadowRoot.appendChild(this.mapContainer);
+    this.markers = {}; // Armazena marcadores por entidade
+    this.infoBoxes = {}; // Armazena InfoBoxes por entidade
+    this.lastPositions = {}; // Armazena a ultima posicao de cada entidade
+    this._uiState = {
+      trafficEnabled: false,
+      nightModeEnabled: false,
+      followEnabled: false,
+      entityVisibility: {},
+    };
+    this._updateStyles();
+  }
+
+  _updateStyles() {
+    const maxHeight = this._config?.max_height || null;
+    const maxWidth = this._config?.max_width || null;
+    
+    // Altura padrão: 450px mobile, 600px desktop
+    const defaultHeightMobile = "450px";
+    const defaultHeightDesktop = "600px";
+    
+    const heightMobile = maxHeight ? `${maxHeight}px` : defaultHeightMobile;
+    const heightDesktop = maxHeight ? `${maxHeight}px` : defaultHeightDesktop;
+    
+    const widthStyle = maxWidth ? `max-width: ${maxWidth}px;` : "";
+    
+    this._styleElement.textContent = `
       :host {
         display: block;
         position: relative;
+        ${widthStyle}
       }
       #map {
         width: 100%;
-        height: 450px; /* Padrao para dispositivos moveis */
+        height: ${heightMobile};
         border-radius: 0 0 6px 6px;
         overflow: hidden;
       }
 
       @media (min-width: 768px) {
         #map {
-          height: 600px; /* Altura para dispositivos maiores (computador) */
+          height: ${heightDesktop};
         }
       }
       .info-box {
@@ -128,7 +161,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         display: flex;
         align-items: center;
         justify-content: center;
-        height: 24px; /* Ajuste conforme necessario */
+        height: 24px;
       }
       .info-box .altitude {
         font-size: 12px;
@@ -165,22 +198,6 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         }
       }
     `;
-    this.shadowRoot.appendChild(style);
-    this.controlsContainer = document.createElement("div");
-    this.controlsContainer.className = "map-controls";
-    this.shadowRoot.appendChild(this.controlsContainer);
-    this.mapContainer = document.createElement("div");
-    this.mapContainer.id = "map";
-    this.shadowRoot.appendChild(this.mapContainer);
-    this.markers = {}; // Armazena marcadores por entidade
-    this.infoBoxes = {}; // Armazena InfoBoxes por entidade
-    this.lastPositions = {}; // Armazena a ultima posicao de cada entidade
-    this._uiState = {
-      trafficEnabled: false,
-      nightModeEnabled: false,
-      followEnabled: false,
-      entityVisibility: {},
-    };
   }
 
   _getStorageKey() {
@@ -267,6 +284,9 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         this._uiState.followEnabled = false;
       }
       this._initializeEntityVisibility();
+      
+      // Atualizar estilos com novos valores de altura/largura
+      this._updateStyles();
       
       // Se o mapa já existe, atualizar os controles com os valores carregados
       if (this._map && this.controlsContainer) {
@@ -803,6 +823,8 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
     formData.follow_entity = formData.follow_entity || "";
     formData.modo_noturno = formData.modo_noturno || "";
     formData.transito = formData.transito || "";
+    formData.max_height = formData.max_height || null;
+    formData.max_width = formData.max_width || null;
     formData.entities = formData.entities || [];
     
     form.schema = this._buildSchema();
@@ -887,6 +909,16 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
         selector: { entity: { domain: "input_boolean" } },
       },
       {
+        name: "max_height",
+        label: "Altura máxima do mapa em pixels (opcional)",
+        selector: { number: { min: 100, max: 2000, step: 10, unit_of_measurement: "px" } },
+      },
+      {
+        name: "max_width",
+        label: "Largura máxima do mapa em pixels (opcional)",
+        selector: { number: { min: 100, max: 2000, step: 10, unit_of_measurement: "px" } },
+      },
+      {
         name: "entities",
         label: "Entidades",
         selector: {
@@ -931,6 +963,8 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
       return { 
         api_key: "",
         follow_entity: "",
+        max_height: null,
+        max_width: null,
         entities: []
       };
     }
@@ -944,6 +978,8 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
         follow_entity: config.follow_entity || "",
         modo_noturno: config.modo_noturno || "",
         transito: config.transito || "",
+        max_height: config.max_height || null,
+        max_width: config.max_width || null,
         entities: normalizedEntities,
       };
       
@@ -962,6 +998,8 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
         follow_entity: config.follow_entity || "",
         modo_noturno: config.modo_noturno || "",
         transito: config.transito || "",
+        max_height: config.max_height || null,
+        max_width: config.max_width || null,
         entities: Array.isArray(config.entities) ? config.entities : [],
       };
     }
