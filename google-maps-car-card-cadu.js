@@ -112,28 +112,38 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       }
       .map-controls {
         position: absolute;
-        top: 12px;
-        right: 12px;
+        top: 0;
+        left: 0;
+        right: 0;
         display: flex;
-        flex-direction: column;
-        gap: 6px;
-        background: rgba(0, 0, 0, 0.6);
+        flex-wrap: wrap;
+        gap: 8px;
+        background: rgba(0, 0, 0, 0.7);
         color: #fff;
-        padding: 8px;
-        border-radius: 6px;
+        padding: 8px 12px;
+        border-radius: 0 0 6px 6px;
         font-size: 12px;
         z-index: 2;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
       }
       .map-controls label {
         display: flex;
         align-items: center;
         gap: 6px;
         cursor: pointer;
+        white-space: nowrap;
       }
       .map-controls .entity-toggle {
         display: flex;
         align-items: center;
         gap: 6px;
+      }
+      @media (max-width: 768px) {
+        .map-controls {
+          flex-direction: column;
+          gap: 6px;
+          padding: 6px 8px;
+        }
       }
     `;
     this.shadowRoot.appendChild(style);
@@ -592,16 +602,23 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
 
   setConfig(config) {
     try {
-      // Normalizar configuração ao receber
-      this._config = this._normalizeConfig(config || {});
+      // Normalizar configuração ao receber ANTES de armazenar
+      const normalized = this._normalizeConfig(config || {});
+      this._config = normalized;
+      
+      // Se já está renderizado, atualizar o form
       if (this._rendered) {
         this._syncFormData();
       } else {
+        // Se não está renderizado, renderizar com os dados normalizados
         this._render();
       }
     } catch (error) {
-      console.error("Erro ao definir configuração:", error);
+      console.error("Erro ao definir configuração:", error, config);
       this._config = config || {};
+      if (this._rendered) {
+        this._syncFormData();
+      }
     }
   }
 
@@ -619,9 +636,29 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
     this.innerHTML = "";
     const form = document.createElement("ha-form");
     form.hass = this._hass;
+    
     // Garantir que os dados estão normalizados antes de passar para o form
-    const normalizedConfig = this._normalizeConfig(this._config || {});
-    form.data = { ...normalizedConfig };
+    // Normalizar novamente para garantir que está correto
+    let normalizedConfig = this._normalizeConfig(this._config || {});
+    
+    // Se ainda houver chaves numéricas após normalização, tentar novamente
+    if (normalizedConfig.entities && normalizedConfig.entities.length > 0) {
+      const stillHasNumericKeys = normalizedConfig.entities.some((ent) => 
+        ent && typeof ent === "object" && Object.keys(ent).some((key) => /^\d+$/.test(key))
+      );
+      if (stillHasNumericKeys) {
+        console.warn("Ainda há chaves numéricas após normalização, tentando novamente...");
+        normalizedConfig = this._normalizeConfig(normalizedConfig);
+      }
+    }
+    
+    // Criar uma cópia profunda para evitar problemas de referência
+    const formData = JSON.parse(JSON.stringify(normalizedConfig));
+    
+    // Debug: verificar dados antes de passar para o form
+    console.log("Dados sendo passados para o form:", formData);
+    
+    form.data = formData;
     form.schema = this._buildSchema();
     form.computeLabel = (schema) => schema.label || schema.name;
     form.addEventListener("value-changed", (event) => {
@@ -646,12 +683,19 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
   _syncFormData() {
     if (this._form && !this._updating) {
       try {
+        this._updating = true;
         this._form.hass = this._hass;
         // Normalizar configuração antes de sincronizar com o form
         const normalizedConfig = this._normalizeConfig(this._config || {});
-        this._form.data = { ...normalizedConfig };
+        // Criar uma cópia profunda para evitar problemas de referência
+        const formData = JSON.parse(JSON.stringify(normalizedConfig));
+        this._form.data = formData;
       } catch (error) {
-        console.error("Erro ao sincronizar dados do form:", error);
+        console.error("Erro ao sincronizar dados do form:", error, this._config);
+      } finally {
+        setTimeout(() => {
+          this._updating = false;
+        }, 50);
       }
     }
   }
@@ -729,12 +773,24 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
       return { entities: [] };
     }
     try {
-      return {
+      const normalized = {
         ...config,
-        entities: normalizeEntitiesConfig(config.entities),
+        entities: normalizeEntitiesConfig(config.entities || []),
       };
+      
+      // Debug: verificar se a normalização funcionou
+      if (config.entities && config.entities.length > 0) {
+        const hasNumericKeys = config.entities.some((ent) => 
+          ent && typeof ent === "object" && Object.keys(ent).some((key) => /^\d+$/.test(key))
+        );
+        if (hasNumericKeys) {
+          console.log("Configuração normalizada:", normalized);
+        }
+      }
+      
+      return normalized;
     } catch (error) {
-      console.error("Erro ao normalizar configuração:", error);
+      console.error("Erro ao normalizar configuração:", error, config);
       return {
         ...config,
         entities: Array.isArray(config.entities) ? config.entities : [],
