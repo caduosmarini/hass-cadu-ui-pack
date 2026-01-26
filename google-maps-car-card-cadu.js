@@ -1,4 +1,4 @@
-class GoogleMapsCardCadu1 extends HTMLElement {
+class GoogleMapsCarCardCadu extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
@@ -481,11 +481,137 @@ class GoogleMapsCardCadu1 extends HTMLElement {
   }
 }
 
-customElements.define("google-maps-card-cadu1", GoogleMapsCardCadu1);
+class GoogleMapsCarCardCaduEditor extends HTMLElement {
+  setConfig(config) {
+    this._config = config;
+    this._render();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    if (this._rendered) {
+      this._syncFormData();
+    } else if (this._config) {
+      this._render();
+    }
+  }
+
+  _render() {
+    this._rendered = true;
+    this.innerHTML = "";
+    const form = document.createElement("ha-form");
+    form.hass = this._hass;
+    form.data = { ...this._config };
+    form.schema = this._buildSchema();
+    form.computeLabel = (schema) => schema.label || schema.name;
+    form.addEventListener("value-changed", (event) => {
+      this._dispatchConfigChanged(event.detail.value);
+    });
+    this.appendChild(form);
+    this._form = form;
+  }
+
+  _syncFormData() {
+    if (this._form) {
+      this._form.hass = this._hass;
+      this._form.data = { ...this._config };
+    }
+  }
+
+  _buildSchema() {
+    return [
+      {
+        name: "api_key",
+        label: "Google Maps API Key",
+        required: true,
+        selector: { text: {} },
+      },
+      {
+        name: "follow_entity",
+        label: "Entidade para seguir (booleana)",
+        required: true,
+        selector: { entity: { domain: "input_boolean" } },
+      },
+      {
+        name: "modo_noturno",
+        label: "Entidade modo noturno (opcional)",
+        selector: { entity: { domain: "input_boolean" } },
+      },
+      {
+        name: "transito",
+        label: "Entidade transito (opcional)",
+        selector: { entity: { domain: "input_boolean" } },
+      },
+      {
+        name: "entities",
+        label: "Entidades",
+        selector: {
+          object: {
+            multiple: true,
+            fields: [
+              {
+                name: "entity",
+                label: "Entidade",
+                required: true,
+                selector: { entity: {} },
+              },
+              {
+                name: "condition",
+                label: "Condicao (opcional)",
+                selector: { entity: { domain: "input_boolean" } },
+              },
+              {
+                name: "image",
+                label: "Imagem (opcional)",
+                selector: { text: {} },
+              },
+              {
+                name: "velocidade",
+                label: "Sensor de velocidade (opcional)",
+                selector: { entity: {} },
+              },
+              {
+                name: "altitude",
+                label: "Sensor de altitude (opcional)",
+                selector: { entity: {} },
+              },
+            ],
+          },
+        },
+      },
+    ];
+  }
+
+  _dispatchConfigChanged(config) {
+    this._config = config;
+    this.dispatchEvent(
+      new CustomEvent("config-changed", {
+        detail: { config },
+        bubbles: true,
+        composed: true,
+      })
+    );
+  }
+}
+
+customElements.define("google-maps-car-card-cadu", GoogleMapsCarCardCadu);
+customElements.define("google-maps-car-card-cadu-editor", GoogleMapsCarCardCaduEditor);
+
+GoogleMapsCarCardCadu.getConfigElement = function () {
+  return document.createElement("google-maps-car-card-cadu-editor");
+};
+
+GoogleMapsCarCardCadu.getStubConfig = function () {
+  return {
+    api_key: "",
+    follow_entity: "",
+    entities: [],
+  };
+};
 
 window.customCards = window.customCards || [];
 window.customCards.push({
-  type: "google-maps-card-cadu1",
-  name: "Google Maps Card Cadu1",
+  type: "google-maps-car-card-cadu",
+  name: "Google Maps Car Card Cadu",
   description: "Exibe dispositivos no Google Maps com InfoBox personalizado.",
 });
