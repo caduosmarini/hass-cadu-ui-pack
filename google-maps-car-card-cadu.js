@@ -743,7 +743,7 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
         selector: {
           object: {
             multiple: true,
-            fields: [
+            schema: [
               {
                 name: "entity",
                 label: "Entidade",
