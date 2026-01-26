@@ -25,6 +25,25 @@ entities:
     altitude: sensor.altitude_dispositivo
 ```
 
+Exemplo com varias entidades:
+
+```yaml
+type: "custom:google-maps-car-card-cadu"
+api_key: "SUA_GOOGLE_MAPS_API_KEY"
+follow_entity: ""
+entities:
+  - entity: device_tracker.song_plus_premium_cadu
+    image: /local/song.png
+    velocidade: sensor.electro_song_cadu_speed
+    altitude: sensor.electro_song_cadu_location_altitude
+  - entity: device_tracker.seal
+    image: /local/seal.png
+    velocidade: sensor.electro_seal_speed
+    altitude: sensor.electro_seal_location_altitude
+grid_options:
+  columns: full
+```
+
 ### Opcoes
 
 - `api_key`: Chave da API do Google Maps.

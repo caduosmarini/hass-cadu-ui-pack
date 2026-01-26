@@ -1,3 +1,43 @@
+const ENTITY_FIELD_ORDER = [
+  "entity",
+  "name",
+  "image",
+  "velocidade",
+  "altitude",
+  "condition",
+];
+
+function normalizeEntityConfig(entityConfig) {
+  if (!entityConfig || typeof entityConfig !== "object") {
+    return entityConfig;
+  }
+  const numericKeys = Object.keys(entityConfig).filter((key) => /^\d+$/.test(key));
+  if (numericKeys.length === 0) {
+    return entityConfig;
+  }
+  const normalized = { ...entityConfig };
+  numericKeys.forEach((key) => {
+    const index = Number(key);
+    const fieldName = ENTITY_FIELD_ORDER[index];
+    if (!fieldName) {
+      delete normalized[key];
+      return;
+    }
+    if (normalized[fieldName] === undefined) {
+      normalized[fieldName] = entityConfig[key];
+    }
+    delete normalized[key];
+  });
+  return normalized;
+}
+
+function normalizeEntitiesConfig(entities) {
+  if (!Array.isArray(entities)) {
+    return [];
+  }
+  return entities.map((entityConfig) => normalizeEntityConfig(entityConfig));
+}
+
 class GoogleMapsCarCardCadu extends HTMLElement {
   constructor() {
     super();
@@ -101,6 +141,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     }
     this._config = {
       ...config,
+      entities: normalizeEntitiesConfig(config.entities),
       transito: typeof config.transito === "string" ? config.transito : null,
       modo_noturno: typeof config.modo_noturno === "string" ? config.modo_noturno : null,
       follow_entity:
@@ -517,7 +558,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
 
 class GoogleMapsCarCardCaduEditor extends HTMLElement {
   setConfig(config) {
-    this._config = config;
+    this._config = this._normalizeConfig(config);
     this._render();
   }
 
@@ -539,7 +580,7 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
     form.schema = this._buildSchema();
     form.computeLabel = (schema) => schema.label || schema.name;
     form.addEventListener("value-changed", (event) => {
-      this._dispatchConfigChanged(event.detail.value);
+      this._dispatchConfigChanged(this._normalizeConfig(event.detail.value));
     });
     this.appendChild(form);
     this._form = form;
@@ -548,7 +589,7 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
   _syncFormData() {
     if (this._form) {
       this._form.hass = this._hass;
-      this._form.data = { ...this._config };
+      this._form.data = { ...this._normalizeConfig(this._config) };
     }
   }
 
@@ -594,11 +635,6 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
                 selector: { text: {} },
               },
               {
-                name: "condition",
-                label: "Condicao (opcional)",
-                selector: { entity: { domain: "input_boolean" } },
-              },
-              {
                 name: "image",
                 label: "Imagem (opcional)",
                 selector: { text: {} },
@@ -613,11 +649,23 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
                 label: "Sensor de altitude (opcional)",
                 selector: { entity: {} },
               },
+              {
+                name: "condition",
+                label: "Condicao (opcional)",
+                selector: { entity: { domain: "input_boolean" } },
+              },
             ],
           },
         },
       },
     ];
+  }
+
+  _normalizeConfig(config) {
+    return {
+      ...config,
+      entities: normalizeEntitiesConfig(config?.entities),
+    };
   }
 
   _dispatchConfigChanged(config) {
