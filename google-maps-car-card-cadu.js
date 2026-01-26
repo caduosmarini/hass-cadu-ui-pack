@@ -490,7 +490,7 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
   set hass(hass) {
     this._hass = hass;
     if (this._rendered) {
-      this._updateEntityPickers();
+      this._syncFormData();
     } else if (this._config) {
       this._render();
     }
@@ -499,104 +499,87 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
   _render() {
     this._rendered = true;
     this.innerHTML = "";
-    const container = document.createElement("div");
-    container.style.display = "grid";
-    container.style.gap = "12px";
-
-    container.appendChild(this._createTextInput("api_key", "Google Maps API Key"));
-    container.appendChild(
-      this._createEntityInput("follow_entity", "Entidade para seguir (booleana)")
-    );
-    container.appendChild(
-      this._createEntityInput("modo_noturno", "Entidade modo noturno (opcional)")
-    );
-    container.appendChild(
-      this._createEntityInput("transito", "Entidade transito (opcional)")
-    );
-
-    const entitiesLabel = document.createElement("label");
-    entitiesLabel.textContent = "Entidades (JSON)";
-    const entitiesInput = document.createElement("textarea");
-    entitiesInput.rows = 6;
-    entitiesInput.value = JSON.stringify(this._config.entities || [], null, 2);
-    entitiesInput.addEventListener("change", () => {
-      let parsed;
-      try {
-        parsed = JSON.parse(entitiesInput.value);
-      } catch (error) {
-        entitiesInput.setCustomValidity("JSON invalido");
-        entitiesInput.reportValidity();
-        return;
-      }
-      entitiesInput.setCustomValidity("");
-      this._updateConfig({ entities: parsed });
+    const form = document.createElement("ha-form");
+    form.hass = this._hass;
+    form.data = { ...this._config };
+    form.schema = this._buildSchema();
+    form.computeLabel = (schema) => schema.label || schema.name;
+    form.addEventListener("value-changed", (event) => {
+      this._dispatchConfigChanged(event.detail.value);
     });
-    entitiesLabel.appendChild(entitiesInput);
-    container.appendChild(entitiesLabel);
-
-    this.appendChild(container);
-    this._updateEntityPickers();
+    this.appendChild(form);
+    this._form = form;
   }
 
-  _createTextInput(field, label) {
-    const inputLabel = document.createElement("label");
-    inputLabel.textContent = label;
-    const input = document.createElement("input");
-    input.type = "text";
-    input.value = this._config[field] || "";
-    input.addEventListener("change", () => {
-      this._updateConfig({ [field]: input.value });
-    });
-    inputLabel.appendChild(input);
-    return inputLabel;
-  }
-
-  _createEntityInput(field, label) {
-    const inputLabel = document.createElement("label");
-    inputLabel.textContent = label;
-    const input = document.createElement("input");
-    input.type = "text";
-    input.value = this._config[field] || "";
-    input.addEventListener("change", () => {
-      const value = input.value.trim();
-      if (!value) {
-        const newConfig = { ...this._config };
-        delete newConfig[field];
-        this._dispatchConfigChanged(newConfig);
-        return;
-      }
-      this._updateConfig({ [field]: value });
-    });
-    inputLabel.appendChild(input);
-    return inputLabel;
-  }
-
-  _updateEntityPickers() {
-    if (!this._hass) {
-      return;
-    }
-    const inputs = this.querySelectorAll("input[type='text']");
-    inputs.forEach((input) => {
-      if (!input.hasAttribute("list")) {
-        const datalistId = "google-maps-car-card-cadu-entities";
-        input.setAttribute("list", datalistId);
-      }
-    });
-    if (!this.querySelector("#google-maps-car-card-cadu-entities")) {
-      const datalist = document.createElement("datalist");
-      datalist.id = "google-maps-car-card-cadu-entities";
-      Object.keys(this._hass.states).forEach((entityId) => {
-        const option = document.createElement("option");
-        option.value = entityId;
-        datalist.appendChild(option);
-      });
-      this.appendChild(datalist);
+  _syncFormData() {
+    if (this._form) {
+      this._form.hass = this._hass;
+      this._form.data = { ...this._config };
     }
   }
 
-  _updateConfig(changes) {
-    const newConfig = { ...this._config, ...changes };
-    this._dispatchConfigChanged(newConfig);
+  _buildSchema() {
+    return [
+      {
+        name: "api_key",
+        label: "Google Maps API Key",
+        required: true,
+        selector: { text: {} },
+      },
+      {
+        name: "follow_entity",
+        label: "Entidade para seguir (booleana)",
+        required: true,
+        selector: { entity: { domain: "input_boolean" } },
+      },
+      {
+        name: "modo_noturno",
+        label: "Entidade modo noturno (opcional)",
+        selector: { entity: { domain: "input_boolean" } },
+      },
+      {
+        name: "transito",
+        label: "Entidade transito (opcional)",
+        selector: { entity: { domain: "input_boolean" } },
+      },
+      {
+        name: "entities",
+        label: "Entidades",
+        selector: {
+          object: {
+            multiple: true,
+            fields: [
+              {
+                name: "entity",
+                label: "Entidade",
+                required: true,
+                selector: { entity: {} },
+              },
+              {
+                name: "condition",
+                label: "Condicao (opcional)",
+                selector: { entity: { domain: "input_boolean" } },
+              },
+              {
+                name: "image",
+                label: "Imagem (opcional)",
+                selector: { text: {} },
+              },
+              {
+                name: "velocidade",
+                label: "Sensor de velocidade (opcional)",
+                selector: { entity: {} },
+              },
+              {
+                name: "altitude",
+                label: "Sensor de altitude (opcional)",
+                selector: { entity: {} },
+              },
+            ],
+          },
+        },
+      },
+    ];
   }
 
   _dispatchConfigChanged(config) {
