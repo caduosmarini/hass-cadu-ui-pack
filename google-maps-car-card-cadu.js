@@ -735,9 +735,10 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         let yOffset = -45; // Padrão quando não há rotação
         
         // Se rotação ativada, calcular posição relativa ao "teto" do carro
-        if (shouldRotate && rotation !== 999) {
+        if (shouldRotate) {
              let cssRotation = 180 - rotation; // O mesmo calculo usado para a imagem
-             const radius = 50; // Distancia do centro aumentada para afastar do carro (antes 40)
+             const radius = 60; // Distancia do centro aumentada para afastar do carro (antes 40)
+             const radiusy = 75;
              
              // Converter para radianos
              const rad = cssRotation * (Math.PI / 180);
@@ -746,7 +747,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
              // 0 graus (Original/Esquerda) -> x=0, y=-R (Cima)
              // 180 graus (Direita) -> x=0, y=R (Baixo)
              xOffset = radius * Math.sin(rad);
-             yOffset = -65 - radius * Math.cos(rad); // Base -65 quando há rotação
+             yOffset = -radiusy * Math.cos(rad);
         }
 
         div.style.left = `${position.x + xOffset}px`;
