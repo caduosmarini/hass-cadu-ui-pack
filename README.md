@@ -53,6 +53,9 @@ grid_options:
 - `transito`: (Opcional) Entidade booleana para mostrar a camada de transito. Se nao definido, o cartao mostra um toggle na interface.
 - `mostrar_menu`: (Opcional) Exibe/oculta o menu superior do cartao. Padrao: `true`.
 - `mostrar_tipo_mapa`: (Opcional) Exibe/oculta os botoes Mapa/Satelite. Padrao: `true`.
+- `mostrar_tela_cheia`: (Opcional) Exibe/oculta o botao de tela cheia. Padrao: `true`.
+- `mostrar_controles_navegacao`: (Opcional) Exibe/oculta os controles de navegacao (zoom). Padrao: `true`.
+- `ocultar_creditos`: (Opcional) Oculta a barra inferior de termos/creditos. Padrao: `false`.
 - `tipo_mapa`: (Opcional) Tipo inicial do mapa. Valores: `roadmap`, `satellite`, `hybrid`, `terrain`. Padrao: `roadmap`.
 - `entities`: Lista de entidades para exibir.
   - `entity`: Entidade com latitude/longitude.

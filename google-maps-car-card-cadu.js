@@ -108,6 +108,9 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       trafficEnabled: false,
       nightModeEnabled: false,
       followEnabled: false,
+      trafficOverride: false,
+      nightModeOverride: false,
+      followOverride: false,
       rotateImageEnabled: false,
       arrowEnabled: true,
       entityVisibility: {},
@@ -129,6 +132,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     const widthStyle = maxWidth ? `max-width: ${maxWidth}px;` : "";
     
     const showTopControls = this._config?.mostrar_menu !== false;
+    const hideMapCredits = this._config?.ocultar_creditos === true;
 
     this._styleElement.textContent = `
       :host {
@@ -206,6 +210,15 @@ class GoogleMapsCarCardCadu extends HTMLElement {
           padding: 6px 8px;
         }
       }
+      ${hideMapCredits ? `
+      /* Oculta barra inferior/termos/creditos do Google Maps */
+      .gm-style-cc,
+      .gmnoprint,
+      .gm-style a[href^="https://maps.google.com/maps"],
+      .gm-style a[href^="https://www.google.com/intl/"],
+      .gm-style .gm-style-cc {
+        display: none !important;
+      }` : ""}
     `;
   }
 
@@ -233,6 +246,9 @@ class GoogleMapsCarCardCadu extends HTMLElement {
             trafficEnabled: parsed.trafficEnabled === true,
             nightModeEnabled: parsed.nightModeEnabled === true,
             followEnabled: parsed.followEnabled === true,
+            trafficOverride: parsed.trafficOverride === true,
+            nightModeOverride: parsed.nightModeOverride === true,
+            followOverride: parsed.followOverride === true,
             rotateImageEnabled: parsed.rotateImageEnabled === true,
             arrowEnabled: parsed.arrowEnabled !== false, // Padrão true
             entityVisibility: parsed.entityVisibility || {},
@@ -284,6 +300,9 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         mostrar_menu: this._config.mostrar_menu !== false,
         mostrar_tipo_mapa: this._config.mostrar_tipo_mapa !== false,
         tipo_mapa: typeof this._config.tipo_mapa === "string" ? this._config.tipo_mapa : "roadmap",
+        mostrar_tela_cheia: this._config.mostrar_tela_cheia !== false,
+        mostrar_controles_navegacao: this._config.mostrar_controles_navegacao !== false,
+        ocultar_creditos: this._config.ocultar_creditos === true,
       };
       
       // Carregar estado salvo do localStorage antes de inicializar valores padrão
@@ -298,6 +317,15 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       }
       if (this._uiState.followEnabled === undefined) {
         this._uiState.followEnabled = false;
+      }
+      if (this._uiState.trafficOverride === undefined) {
+        this._uiState.trafficOverride = false;
+      }
+      if (this._uiState.nightModeOverride === undefined) {
+        this._uiState.nightModeOverride = false;
+      }
+      if (this._uiState.followOverride === undefined) {
+        this._uiState.followOverride = false;
       }
       if (this._uiState.rotateImageEnabled === undefined) {
         this._uiState.rotateImageEnabled = false;
@@ -319,6 +347,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
           this._applyNightMode();
           this._toggleTrafficLayer();
           this._applyMapTypeOptions();
+          this._applyMapControlsOptions();
         });
       }
       
@@ -371,6 +400,14 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     });
   }
 
+  _applyMapControlsOptions() {
+    if (!this._map) return;
+    this._map.setOptions({
+      fullscreenControl: this._config.mostrar_tela_cheia !== false,
+      zoomControl: this._config.mostrar_controles_navegacao !== false,
+    });
+  }
+
   getCardSize() {
     return 6;
   }
@@ -384,6 +421,8 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       streetViewControl: false, // Desabilita o controle de Street View
       mapTypeControl: this._config.mostrar_tipo_mapa !== false,
       mapTypeId: this._config.tipo_mapa || "roadmap",
+      fullscreenControl: this._config.mostrar_tela_cheia !== false,
+      zoomControl: this._config.mostrar_controles_navegacao !== false,
     });
     this._renderControls();
     // Aplicar modo noturno após renderizar controles para garantir que o estado está carregado
@@ -420,7 +459,9 @@ class GoogleMapsCarCardCadu extends HTMLElement {
   _shouldFollow() {
     if (this._config.follow_entity && this._config.follow_entity !== "") {
       const followEntity = this._hass.states[this._config.follow_entity];
-      return followEntity && followEntity.state === "on";
+      if (!this._uiState.followOverride) {
+        return followEntity && followEntity.state === "on";
+      }
     }
     return this._uiState.followEnabled;
   }
@@ -502,10 +543,14 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     ];
 
     const configNightMode = this._config.modo_noturno;
-    const nightMode =
-      typeof configNightMode === "string" && configNightMode !== ""
-        ? this._hass.states[configNightMode]?.state === "on"
-        : this._uiState.nightModeEnabled;
+    let nightMode = this._uiState.nightModeEnabled;
+    if (
+      typeof configNightMode === "string" &&
+      configNightMode !== "" &&
+      !this._uiState.nightModeOverride
+    ) {
+      nightMode = this._hass.states[configNightMode]?.state === "on";
+    }
     this._map.setOptions({
       styles: nightMode ? nightModeStyle : [],
     });
@@ -515,10 +560,14 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     if (!this.trafficLayer) return;
     
     const configTraffic = this._config.transito;
-    const trafficEnabled =
-      typeof configTraffic === "string" && configTraffic !== ""
-        ? this._hass.states[configTraffic]?.state === "on"
-        : this._uiState.trafficEnabled;
+    let trafficEnabled = this._uiState.trafficEnabled;
+    if (
+      typeof configTraffic === "string" &&
+      configTraffic !== "" &&
+      !this._uiState.trafficOverride
+    ) {
+      trafficEnabled = this._hass.states[configTraffic]?.state === "on";
+    }
     if (trafficEnabled) {
       this.trafficLayer.setMap(this._map);
     } else {
@@ -821,58 +870,74 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       return;
     }
 
-    const hasUiTraffic = !this._config.transito || typeof this._config.transito !== "string";
-    const hasUiNightMode =
-      !this._config.modo_noturno || typeof this._config.modo_noturno !== "string";
-    const hasUiFollow =
-      !this._config.follow_entity || typeof this._config.follow_entity !== "string";
-
-    if (hasUiTraffic) {
-      const trafficLabel = document.createElement("label");
-      const trafficCheckbox = document.createElement("input");
-      trafficCheckbox.type = "checkbox";
+    const trafficLabel = document.createElement("label");
+    const trafficCheckbox = document.createElement("input");
+    trafficCheckbox.type = "checkbox";
+    if (
+      typeof this._config.transito === "string" &&
+      this._config.transito !== "" &&
+      !this._uiState.trafficOverride
+    ) {
+      trafficCheckbox.checked = this._hass?.states?.[this._config.transito]?.state === "on";
+    } else {
       trafficCheckbox.checked = this._uiState.trafficEnabled;
-      trafficCheckbox.addEventListener("change", () => {
-        this._uiState.trafficEnabled = trafficCheckbox.checked;
-        this._saveUIState();
-        this._toggleTrafficLayer();
-      });
-      trafficLabel.appendChild(trafficCheckbox);
-      trafficLabel.appendChild(document.createTextNode("Transito"));
-      this.controlsContainer.appendChild(trafficLabel);
     }
+    trafficCheckbox.addEventListener("change", () => {
+      this._uiState.trafficOverride = true;
+      this._uiState.trafficEnabled = trafficCheckbox.checked;
+      this._saveUIState();
+      this._toggleTrafficLayer();
+    });
+    trafficLabel.appendChild(trafficCheckbox);
+    trafficLabel.appendChild(document.createTextNode("Transito"));
+    this.controlsContainer.appendChild(trafficLabel);
 
-    if (hasUiNightMode) {
-      const nightLabel = document.createElement("label");
-      const nightCheckbox = document.createElement("input");
-      nightCheckbox.type = "checkbox";
+    const nightLabel = document.createElement("label");
+    const nightCheckbox = document.createElement("input");
+    nightCheckbox.type = "checkbox";
+    if (
+      typeof this._config.modo_noturno === "string" &&
+      this._config.modo_noturno !== "" &&
+      !this._uiState.nightModeOverride
+    ) {
+      nightCheckbox.checked = this._hass?.states?.[this._config.modo_noturno]?.state === "on";
+    } else {
       nightCheckbox.checked = this._uiState.nightModeEnabled;
-      nightCheckbox.addEventListener("change", () => {
-        this._uiState.nightModeEnabled = nightCheckbox.checked;
-        this._saveUIState();
-        this._applyNightMode();
-      });
-      nightLabel.appendChild(nightCheckbox);
-      nightLabel.appendChild(document.createTextNode("Modo noturno"));
-      this.controlsContainer.appendChild(nightLabel);
     }
+    nightCheckbox.addEventListener("change", () => {
+      this._uiState.nightModeOverride = true;
+      this._uiState.nightModeEnabled = nightCheckbox.checked;
+      this._saveUIState();
+      this._applyNightMode();
+    });
+    nightLabel.appendChild(nightCheckbox);
+    nightLabel.appendChild(document.createTextNode("Modo noturno"));
+    this.controlsContainer.appendChild(nightLabel);
 
-    if (hasUiFollow) {
-      const followLabel = document.createElement("label");
-      const followCheckbox = document.createElement("input");
-      followCheckbox.type = "checkbox";
+    const followLabel = document.createElement("label");
+    const followCheckbox = document.createElement("input");
+    followCheckbox.type = "checkbox";
+    if (
+      typeof this._config.follow_entity === "string" &&
+      this._config.follow_entity !== "" &&
+      !this._uiState.followOverride
+    ) {
+      followCheckbox.checked =
+        this._hass?.states?.[this._config.follow_entity]?.state === "on";
+    } else {
       followCheckbox.checked = this._uiState.followEnabled;
-      followCheckbox.addEventListener("change", () => {
-        this._uiState.followEnabled = followCheckbox.checked;
-        this._saveUIState();
-        if (this._shouldFollow()) {
-          this._fitMapBounds();
-        }
-      });
-      followLabel.appendChild(followCheckbox);
-      followLabel.appendChild(document.createTextNode("Seguir"));
-      this.controlsContainer.appendChild(followLabel);
     }
+    followCheckbox.addEventListener("change", () => {
+      this._uiState.followOverride = true;
+      this._uiState.followEnabled = followCheckbox.checked;
+      this._saveUIState();
+      if (this._shouldFollow()) {
+        this._fitMapBounds();
+      }
+    });
+    followLabel.appendChild(followCheckbox);
+    followLabel.appendChild(document.createTextNode("Seguir"));
+    this.controlsContainer.appendChild(followLabel);
 
     const rotateLabel = document.createElement("label");
     const rotateCheckbox = document.createElement("input");
@@ -1090,6 +1155,9 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
     formData.mostrar_menu = formData.mostrar_menu !== false;
     formData.mostrar_tipo_mapa = formData.mostrar_tipo_mapa !== false;
     formData.tipo_mapa = formData.tipo_mapa || "roadmap";
+    formData.mostrar_tela_cheia = formData.mostrar_tela_cheia !== false;
+    formData.mostrar_controles_navegacao = formData.mostrar_controles_navegacao !== false;
+    formData.ocultar_creditos = formData.ocultar_creditos === true;
     formData.max_height = formData.max_height || null;
     formData.max_width = formData.max_width || null;
     formData.entities = formData.entities || [];
@@ -1186,6 +1254,21 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
         selector: { boolean: {} },
       },
       {
+        name: "mostrar_tela_cheia",
+        label: "Mostrar botão tela cheia (opcional)",
+        selector: { boolean: {} },
+      },
+      {
+        name: "mostrar_controles_navegacao",
+        label: "Mostrar controles de navegação (opcional)",
+        selector: { boolean: {} },
+      },
+      {
+        name: "ocultar_creditos",
+        label: "Ocultar créditos/termos do mapa (opcional)",
+        selector: { boolean: {} },
+      },
+      {
         name: "tipo_mapa",
         label: "Tipo de mapa (opcional)",
         selector: {
@@ -1276,6 +1359,9 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
         mostrar_menu: config.mostrar_menu !== false,
         mostrar_tipo_mapa: config.mostrar_tipo_mapa !== false,
         tipo_mapa: config.tipo_mapa || "roadmap",
+        mostrar_tela_cheia: config.mostrar_tela_cheia !== false,
+        mostrar_controles_navegacao: config.mostrar_controles_navegacao !== false,
+        ocultar_creditos: config.ocultar_creditos === true,
         max_height: config.max_height || null,
         max_width: config.max_width || null,
         entities: normalizedEntities,
@@ -1299,6 +1385,9 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
         mostrar_menu: config.mostrar_menu !== false,
         mostrar_tipo_mapa: config.mostrar_tipo_mapa !== false,
         tipo_mapa: config.tipo_mapa || "roadmap",
+        mostrar_tela_cheia: config.mostrar_tela_cheia !== false,
+        mostrar_controles_navegacao: config.mostrar_controles_navegacao !== false,
+        ocultar_creditos: config.ocultar_creditos === true,
         max_height: config.max_height || null,
         max_width: config.max_width || null,
         entities: Array.isArray(config.entities) ? config.entities : [],
