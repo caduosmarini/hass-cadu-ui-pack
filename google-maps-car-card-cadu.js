@@ -462,8 +462,8 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     const total = points.length - 1;
     for (let i = 1; i < points.length; i++) {
       const ratio = i / total;
-      // Mais forte no mais antigo, mais fraco no recente
-      const opacity = minOpacity + (1 - ratio) * (maxOpacity - minOpacity);
+      // Mais forte no mais recente, mais fraco no antigo
+      const opacity = minOpacity + ratio * (maxOpacity - minOpacity);
       const segment = new google.maps.Polyline({
         path: [
           { lat: points[i - 1].lat, lng: points[i - 1].lng },
