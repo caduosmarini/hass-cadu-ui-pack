@@ -142,7 +142,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     this.trailPolylines = {}; // Armazena polylines do rastro por entidade
     this._lastMapTypeOptions = null;
     this._lastMapControlsOptions = null;
-    this._historyLoaded = false;
+    this._historyLoaded = {};
     this._uiState = {
       trafficEnabled: false,
       nightModeEnabled: false,
@@ -309,12 +309,18 @@ class GoogleMapsCarCardCadu extends HTMLElement {
   }
 
   async _loadHistoryForEntities() {
-    if (!this._hass || !this._config?.entities || this._historyLoaded) return;
-    this._historyLoaded = true;
+    if (!this._hass || !this._config?.entities) return;
     const now = Date.now();
     for (const entityConfig of this._config.entities) {
       const entityId = entityConfig.entity;
       if (!entityId) continue;
+      if (this._config.historico_somente_rastro !== false && entityConfig.rastro !== true) {
+        continue;
+      }
+      if (this._historyLoaded[entityId] === true) {
+        continue;
+      }
+      this._historyLoaded[entityId] = true;
       const durationMin = Number.isFinite(entityConfig.rastro_duracao_min)
         ? entityConfig.rastro_duracao_min
         : 60;
@@ -337,10 +343,14 @@ class GoogleMapsCarCardCadu extends HTMLElement {
           });
         }
         points.sort((a, b) => a.ts - b.ts);
-        this.trails[entityId] = points;
-        const rotation = this._findLastSignificantRotation(points);
+        const maxPoints = Number.isFinite(this._config.historico_limite_pontos)
+          ? this._config.historico_limite_pontos
+          : null;
+        const sampled = maxPoints ? this._sampleHistoryPoints(points, maxPoints) : points;
+        this.trails[entityId] = sampled;
+        const rotation = this._findLastSignificantRotation(sampled);
         if (rotation !== null) {
-          const last = points[points.length - 1];
+          const last = sampled[sampled.length - 1];
           this.lastPositions[entityId] = {
             lat: last.lat,
             lng: last.lng,
@@ -381,6 +391,22 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       return colorValue.trim();
     }
     return "#00aaff";
+  }
+
+  _sampleHistoryPoints(points, maxPoints) {
+    if (!Array.isArray(points) || points.length <= maxPoints) {
+      return points;
+    }
+    const step = Math.ceil(points.length / maxPoints);
+    const sampled = [];
+    for (let i = 0; i < points.length; i += step) {
+      sampled.push(points[i]);
+    }
+    const last = points[points.length - 1];
+    if (sampled[sampled.length - 1] !== last) {
+      sampled.push(last);
+    }
+    return sampled;
   }
 
   _findLastSignificantRotation(points) {
@@ -518,6 +544,12 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         modo_noturno_on: this._config.modo_noturno_on === true,
         seguir_on: this._config.seguir_on === true,
         rotacao_on: this._config.rotacao_on === true,
+        historico_somente_rastro: this._config.historico_somente_rastro !== false,
+        historico_carregar_no_start: this._config.historico_carregar_no_start !== false,
+        historico_recarregar: this._config.historico_recarregar === true,
+        historico_limite_pontos: Number.isFinite(this._config.historico_limite_pontos)
+          ? this._config.historico_limite_pontos
+          : null,
       };
       
       // Carregar estado salvo do localStorage antes de inicializar valores padrão
@@ -578,6 +610,11 @@ class GoogleMapsCarCardCadu extends HTMLElement {
           this._applyMapTypeOptions();
           this._applyMapControlsOptions();
         });
+      }
+
+      if (this._map && this._config.historico_recarregar === true) {
+        this._historyLoaded = {};
+        this._loadHistoryForEntities();
       }
       
       if (!this._config.api_key) {
@@ -670,13 +707,15 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     }, 50);
 
     // Carregar histórico do HA para direção inicial e rastro
-    this._loadHistoryForEntities().then(() => {
-      if (this._config.entities) {
-        this._config.entities.forEach((entityConfig) => {
-          this._addOrUpdateMarker(entityConfig);
-        });
-      }
-    });
+    if (this._config.historico_carregar_no_start !== false) {
+      this._loadHistoryForEntities().then(() => {
+        if (this._config.entities) {
+          this._config.entities.forEach((entityConfig) => {
+            this._addOrUpdateMarker(entityConfig);
+          });
+        }
+      });
+    }
 
     if (this._config.entities) {
       this._config.entities.forEach((entityConfig) => {
@@ -1432,6 +1471,12 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
     formData.modo_noturno_on = formData.modo_noturno_on === true;
     formData.seguir_on = formData.seguir_on === true;
     formData.rotacao_on = formData.rotacao_on === true;
+    formData.historico_somente_rastro = formData.historico_somente_rastro !== false;
+    formData.historico_carregar_no_start = formData.historico_carregar_no_start !== false;
+    formData.historico_recarregar = formData.historico_recarregar === true;
+    formData.historico_limite_pontos = Number.isFinite(formData.historico_limite_pontos)
+      ? formData.historico_limite_pontos
+      : null;
     formData.max_height = formData.max_height || null;
     formData.max_width = formData.max_width || null;
     formData.entities = formData.entities || [];
@@ -1546,6 +1591,26 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
         name: "ocultar_creditos",
         label: "Ocultar créditos/termos do mapa (opcional)",
         selector: { boolean: {} },
+      },
+      {
+        name: "historico_somente_rastro",
+        label: "Histórico: carregar só se rastro ativo",
+        selector: { boolean: {} },
+      },
+      {
+        name: "historico_carregar_no_start",
+        label: "Histórico: carregar ao iniciar",
+        selector: { boolean: {} },
+      },
+      {
+        name: "historico_recarregar",
+        label: "Histórico: recarregar ao alterar config",
+        selector: { boolean: {} },
+      },
+      {
+        name: "historico_limite_pontos",
+        label: "Histórico: limite de pontos (opcional)",
+        selector: { number: { min: 10, max: 10000, step: 10 } },
       },
       {
         name: "modo_noturno_on",
@@ -1680,6 +1745,12 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
         modo_noturno_on: config.modo_noturno_on === true,
         seguir_on: config.seguir_on === true,
         rotacao_on: config.rotacao_on === true,
+        historico_somente_rastro: config.historico_somente_rastro !== false,
+        historico_carregar_no_start: config.historico_carregar_no_start !== false,
+        historico_recarregar: config.historico_recarregar === true,
+        historico_limite_pontos: Number.isFinite(config.historico_limite_pontos)
+          ? config.historico_limite_pontos
+          : null,
         max_height: config.max_height || null,
         max_width: config.max_width || null,
         entities: normalizedEntities,
@@ -1710,6 +1781,12 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
         modo_noturno_on: config.modo_noturno_on === true,
         seguir_on: config.seguir_on === true,
         rotacao_on: config.rotacao_on === true,
+        historico_somente_rastro: config.historico_somente_rastro !== false,
+        historico_carregar_no_start: config.historico_carregar_no_start !== false,
+        historico_recarregar: config.historico_recarregar === true,
+        historico_limite_pontos: Number.isFinite(config.historico_limite_pontos)
+          ? config.historico_limite_pontos
+          : null,
         max_height: config.max_height || null,
         max_width: config.max_width || null,
         entities: Array.isArray(config.entities) ? config.entities : [],

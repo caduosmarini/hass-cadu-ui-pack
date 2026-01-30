@@ -59,6 +59,10 @@ grid_options:
 - `modo_noturno_on`: (Opcional) Liga/desliga o modo noturno quando nao usa entidade. Padrao: `false`.
 - `seguir_on`: (Opcional) Liga/desliga o seguir quando nao usa entidade. Padrao: `false`.
 - `rotacao_on`: (Opcional) Liga/desliga a rotacao quando o menu superior estiver oculto. Padrao: `false`.
+- `historico_somente_rastro`: (Opcional) Carrega histórico apenas se o rastro estiver ativo. Padrao: `true`.
+- `historico_carregar_no_start`: (Opcional) Carrega histórico ao iniciar o card. Padrao: `true`.
+- `historico_recarregar`: (Opcional) Recarrega histórico ao alterar configuracao. Padrao: `false`.
+- `historico_limite_pontos`: (Opcional) Limite maximo de pontos do histórico. Padrao: nenhum.
 - `mostrar_menu`: (Opcional) Exibe/oculta o menu superior do cartao. Padrao: `true`.
 - `mostrar_tipo_mapa`: (Opcional) Exibe/oculta os botoes Mapa/Satelite. Padrao: `true`.
 - `mostrar_tela_cheia`: (Opcional) Exibe/oculta o botao de tela cheia. Padrao: `true`.
