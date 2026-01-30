@@ -80,8 +80,8 @@ grid_options:
 
 ### Rastro e historico
 
-- O rastro e persistido no navegador (localStorage).
-- A direcao inicial do carro e calculada com base no historico salvo, mesmo que o rastro esteja desativado.
+- O rastro usa o historico da entidade no Home Assistant (API `history/period`).
+- A direcao inicial do carro e calculada com base nesse historico, mesmo que o rastro esteja desativado.
 
 ### Controles na interface
 

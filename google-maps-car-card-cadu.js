@@ -142,6 +142,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     this.trailPolylines = {}; // Armazena polylines do rastro por entidade
     this._lastMapTypeOptions = null;
     this._lastMapControlsOptions = null;
+    this._historyLoaded = false;
     this._uiState = {
       trafficEnabled: false,
       nightModeEnabled: false,
@@ -307,52 +308,52 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     }
   }
 
-  _getTrailStorageKey() {
-    return `${this._getStorageKey()}-trails`;
-  }
-
-  _loadTrails() {
-    try {
-      const storageKey = this._getTrailStorageKey();
-      const saved = localStorage.getItem(storageKey);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed && typeof parsed === "object") {
-          this.trails = parsed;
-        }
-      }
-    } catch (error) {
-      console.error("Erro ao carregar rastro do localStorage:", error);
-    }
-  }
-
-  _saveTrails() {
-    try {
-      const storageKey = this._getTrailStorageKey();
-      localStorage.setItem(storageKey, JSON.stringify(this.trails));
-    } catch (error) {
-      console.error("Erro ao salvar rastro no localStorage:", error);
-    }
-  }
-
-  _primeLastPositionsFromHistory() {
-    if (!this._config?.entities || !this.trails) return;
-    this._config.entities.forEach((entityConfig) => {
+  async _loadHistoryForEntities() {
+    if (!this._hass || !this._config?.entities || this._historyLoaded) return;
+    this._historyLoaded = true;
+    const now = Date.now();
+    for (const entityConfig of this._config.entities) {
       const entityId = entityConfig.entity;
-      const points = this.trails[entityId];
-      if (Array.isArray(points) && points.length >= 2) {
-        const last = points[points.length - 1];
-        const prev = points[points.length - 2];
-        const deltaX = last.lng - prev.lng;
-        const deltaY = last.lat - prev.lat;
-        const rotation = Math.atan2(deltaY, deltaX) * (180 / Math.PI);
-        this.lastPositions[entityId] = {
-          lat: last.lat,
-          lng: last.lng,
-          rotation,
-        };
+      if (!entityId) continue;
+      const durationMin = Number.isFinite(entityConfig.rastro_duracao_min)
+        ? entityConfig.rastro_duracao_min
+        : 60;
+      const start = new Date(now - durationMin * 60 * 1000).toISOString();
+      try {
+        const history = await this._hass.callApi(
+          "GET",
+          `history/period/${start}?filter_entity_id=${entityId}&significant_changes_only=0`
+        );
+        const states = Array.isArray(history) ? history[0] : [];
+        const points = [];
+        if (Array.isArray(states)) {
+          states.forEach((state) => {
+            const lat = state?.attributes?.latitude;
+            const lng = state?.attributes?.longitude;
+            if (typeof lat === "number" && typeof lng === "number") {
+              const ts = new Date(state.last_updated || state.last_changed || state.timestamp).getTime();
+              points.push({ lat, lng, ts });
+            }
+          });
+        }
+        this.trails[entityId] = points;
+        if (points.length >= 2) {
+          const last = points[points.length - 1];
+          const prev = points[points.length - 2];
+          const deltaX = last.lng - prev.lng;
+          const deltaY = last.lat - prev.lat;
+          const rotation = Math.atan2(deltaY, deltaX) * (180 / Math.PI);
+          this.lastPositions[entityId] = {
+            lat: last.lat,
+            lng: last.lng,
+            rotation,
+          };
+        }
+        this._renderTrail(entityId, entityConfig);
+      } catch (error) {
+        console.error("Erro ao carregar histórico do HA:", error, entityId);
       }
-    });
+    }
   }
 
   _getTrailConfig(entityConfig) {
@@ -408,7 +409,6 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     let pruned = this._pruneTrail(next, durationMs, cfg.maxPoints);
     pruned = this._reduceTrailDensity(pruned, cfg.maxPerMin);
     this.trails[entityId] = pruned;
-    this._saveTrails();
   }
 
   _clearTrail(entityId) {
@@ -496,8 +496,6 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       
       // Carregar estado salvo do localStorage antes de inicializar valores padrão
       this._loadUIState();
-      this._loadTrails();
-      this._primeLastPositionsFromHistory();
       
       // Inicializar valores padrão apenas se não existirem no estado carregado
       if (this._uiState.trafficEnabled === undefined) {
@@ -644,6 +642,15 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     setTimeout(() => {
       this._applyNightMode();
     }, 50);
+
+    // Carregar histórico do HA para direção inicial e rastro
+    this._loadHistoryForEntities().then(() => {
+      if (this._config.entities) {
+        this._config.entities.forEach((entityConfig) => {
+          this._addOrUpdateMarker(entityConfig);
+        });
+      }
+    });
 
     if (this._config.entities) {
       this._config.entities.forEach((entityConfig) => {
