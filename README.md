@@ -54,6 +54,7 @@ grid_options:
 - `transito_on`: (Opcional) Liga/desliga o transito quando nao usa entidade. Padrao: `false`.
 - `modo_noturno_on`: (Opcional) Liga/desliga o modo noturno quando nao usa entidade. Padrao: `false`.
 - `seguir_on`: (Opcional) Liga/desliga o seguir quando nao usa entidade. Padrao: `false`.
+- `rotacao_on`: (Opcional) Liga/desliga a rotacao quando o menu superior estiver oculto. Padrao: `false`.
 - `mostrar_menu`: (Opcional) Exibe/oculta o menu superior do cartao. Padrao: `true`.
 - `mostrar_tipo_mapa`: (Opcional) Exibe/oculta os botoes Mapa/Satelite. Padrao: `true`.
 - `mostrar_tela_cheia`: (Opcional) Exibe/oculta o botao de tela cheia. Padrao: `true`.

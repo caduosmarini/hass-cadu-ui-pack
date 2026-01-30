@@ -306,6 +306,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         transito_on: this._config.transito_on === true,
         modo_noturno_on: this._config.modo_noturno_on === true,
         seguir_on: this._config.seguir_on === true,
+        rotacao_on: this._config.rotacao_on === true,
       };
       
       // Carregar estado salvo do localStorage antes de inicializar valores padrão
@@ -348,6 +349,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         if (!this._config.follow_entity) {
           this._uiState.followEnabled = this._config.seguir_on === true;
         }
+        this._uiState.rotateImageEnabled = this._config.rotacao_on === true;
       }
       this._initializeEntityVisibility();
       
@@ -1192,6 +1194,7 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
     formData.transito_on = formData.transito_on === true;
     formData.modo_noturno_on = formData.modo_noturno_on === true;
     formData.seguir_on = formData.seguir_on === true;
+    formData.rotacao_on = formData.rotacao_on === true;
     formData.max_height = formData.max_height || null;
     formData.max_width = formData.max_width || null;
     formData.entities = formData.entities || [];
@@ -1318,6 +1321,11 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
         selector: { boolean: {} },
       },
       {
+        name: "rotacao_on",
+        label: "Rotação ligada (sem menu)",
+        selector: { boolean: {} },
+      },
+      {
         name: "tipo_mapa",
         label: "Tipo de mapa (opcional)",
         selector: {
@@ -1414,6 +1422,7 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
         transito_on: config.transito_on === true,
         modo_noturno_on: config.modo_noturno_on === true,
         seguir_on: config.seguir_on === true,
+        rotacao_on: config.rotacao_on === true,
         max_height: config.max_height || null,
         max_width: config.max_width || null,
         entities: normalizedEntities,
@@ -1443,6 +1452,7 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
         transito_on: config.transito_on === true,
         modo_noturno_on: config.modo_noturno_on === true,
         seguir_on: config.seguir_on === true,
+        rotacao_on: config.rotacao_on === true,
         max_height: config.max_height || null,
         max_width: config.max_width || null,
         entities: Array.isArray(config.entities) ? config.entities : [],
