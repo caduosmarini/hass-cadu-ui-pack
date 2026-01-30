@@ -13,9 +13,15 @@ function normalizeEntityConfig(entityConfig) {
       entity: "",
       name: "",
       image: "",
+      image_rotated: "",
       velocidade: "",
       altitude: "",
       condition: "",
+      rastro: false,
+      rastro_duracao_min: null,
+      rastro_pontos_por_min: null,
+      rastro_cor: "",
+      rastro_max_pontos: null,
     };
   }
   
@@ -31,6 +37,20 @@ function normalizeEntityConfig(entityConfig) {
       velocidade: entityConfig.velocidade || "",
       altitude: entityConfig.altitude || "",
       condition: entityConfig.condition || "",
+      rastro: entityConfig.rastro === true,
+      rastro_duracao_min:
+        typeof entityConfig.rastro_duracao_min === "number"
+          ? entityConfig.rastro_duracao_min
+          : null,
+      rastro_pontos_por_min:
+        typeof entityConfig.rastro_pontos_por_min === "number"
+          ? entityConfig.rastro_pontos_por_min
+          : null,
+      rastro_cor: entityConfig.rastro_cor || "",
+      rastro_max_pontos:
+        typeof entityConfig.rastro_max_pontos === "number"
+          ? entityConfig.rastro_max_pontos
+          : null,
     };
     
     // Preservar outros campos que possam existir
@@ -68,6 +88,20 @@ function normalizeEntityConfig(entityConfig) {
       velocidade: entityConfig.velocidade || "",
       altitude: entityConfig.altitude || "",
       condition: entityConfig.condition || "",
+      rastro: entityConfig.rastro === true,
+      rastro_duracao_min:
+        typeof entityConfig.rastro_duracao_min === "number"
+          ? entityConfig.rastro_duracao_min
+          : null,
+      rastro_pontos_por_min:
+        typeof entityConfig.rastro_pontos_por_min === "number"
+          ? entityConfig.rastro_pontos_por_min
+          : null,
+      rastro_cor: entityConfig.rastro_cor || "",
+      rastro_max_pontos:
+        typeof entityConfig.rastro_max_pontos === "number"
+          ? entityConfig.rastro_max_pontos
+          : null,
       ...entityConfig
     };
   }
@@ -104,6 +138,8 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     this.markers = {}; // Armazena marcadores por entidade
     this.infoBoxes = {}; // Armazena InfoBoxes por entidade
     this.lastPositions = {}; // Armazena a ultima posicao de cada entidade
+    this.trails = {}; // Armazena rastro por entidade
+    this.trailPolylines = {}; // Armazena polylines do rastro por entidade
     this._uiState = {
       trafficEnabled: false,
       nightModeEnabled: false,
@@ -269,6 +305,153 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     }
   }
 
+  _getTrailStorageKey() {
+    return `${this._getStorageKey()}-trails`;
+  }
+
+  _loadTrails() {
+    try {
+      const storageKey = this._getTrailStorageKey();
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === "object") {
+          this.trails = parsed;
+        }
+      }
+    } catch (error) {
+      console.error("Erro ao carregar rastro do localStorage:", error);
+    }
+  }
+
+  _saveTrails() {
+    try {
+      const storageKey = this._getTrailStorageKey();
+      localStorage.setItem(storageKey, JSON.stringify(this.trails));
+    } catch (error) {
+      console.error("Erro ao salvar rastro no localStorage:", error);
+    }
+  }
+
+  _primeLastPositionsFromHistory() {
+    if (!this._config?.entities || !this.trails) return;
+    this._config.entities.forEach((entityConfig) => {
+      const entityId = entityConfig.entity;
+      const points = this.trails[entityId];
+      if (Array.isArray(points) && points.length >= 2) {
+        const last = points[points.length - 1];
+        const prev = points[points.length - 2];
+        const deltaX = last.lng - prev.lng;
+        const deltaY = last.lat - prev.lat;
+        const rotation = Math.atan2(deltaY, deltaX) * (180 / Math.PI);
+        this.lastPositions[entityId] = {
+          lat: last.lat,
+          lng: last.lng,
+          rotation,
+        };
+      }
+    });
+  }
+
+  _getTrailConfig(entityConfig) {
+    return {
+      enabled: entityConfig.rastro === true,
+      durationMin: Number.isFinite(entityConfig.rastro_duracao_min)
+        ? entityConfig.rastro_duracao_min
+        : 60,
+      maxPerMin: Number.isFinite(entityConfig.rastro_pontos_por_min)
+        ? entityConfig.rastro_pontos_por_min
+        : 10,
+      color: entityConfig.rastro_cor || "#00aaff",
+      maxPoints: Number.isFinite(entityConfig.rastro_max_pontos)
+        ? entityConfig.rastro_max_pontos
+        : 600,
+    };
+  }
+
+  _pruneTrail(points, durationMs, maxPoints) {
+    const now = Date.now();
+    let filtered = points.filter((p) => now - p.ts <= durationMs);
+    if (filtered.length > maxPoints) {
+      filtered = filtered.slice(filtered.length - maxPoints);
+    }
+    return filtered;
+  }
+
+  _reduceTrailDensity(points, maxPerMinute) {
+    const now = Date.now();
+    let result = points.slice();
+    const countLastMinute = (arr) => arr.filter((p) => now - p.ts <= 60000).length;
+    let guard = 0;
+    while (countLastMinute(result) > maxPerMinute && result.length > 2 && guard < 5) {
+      result = result.filter((_, idx) => idx % 2 === 0 || idx === result.length - 1);
+      guard += 1;
+    }
+    return result;
+  }
+
+  _recordTrailPoint(entityId, location, entityConfig) {
+    const cfg = this._getTrailConfig(entityConfig);
+    const points = Array.isArray(this.trails[entityId]) ? this.trails[entityId] : [];
+    const last = points[points.length - 1];
+    const deltaX = last ? Math.abs(location.lng() - last.lng) : Infinity;
+    const deltaY = last ? Math.abs(location.lat() - last.lat) : Infinity;
+
+    if (last && deltaX <= 0.00001 && deltaY <= 0.00001) {
+      return;
+    }
+
+    const next = points.concat([{ lat: location.lat(), lng: location.lng(), ts: Date.now() }]);
+    const durationMs = cfg.durationMin * 60 * 1000;
+    let pruned = this._pruneTrail(next, durationMs, cfg.maxPoints);
+    pruned = this._reduceTrailDensity(pruned, cfg.maxPerMin);
+    this.trails[entityId] = pruned;
+    this._saveTrails();
+  }
+
+  _clearTrail(entityId) {
+    const polylines = this.trailPolylines[entityId];
+    if (Array.isArray(polylines)) {
+      polylines.forEach((line) => line.setMap(null));
+    }
+    delete this.trailPolylines[entityId];
+  }
+
+  _renderTrail(entityId, entityConfig) {
+    const cfg = this._getTrailConfig(entityConfig);
+    if (!cfg.enabled) {
+      this._clearTrail(entityId);
+      return;
+    }
+    const points = this.trails[entityId];
+    if (!Array.isArray(points) || points.length < 2) {
+      this._clearTrail(entityId);
+      return;
+    }
+    this._clearTrail(entityId);
+    const polylines = [];
+    const maxOpacity = 0.9;
+    const minOpacity = 0.1;
+    const total = points.length - 1;
+    for (let i = 1; i < points.length; i++) {
+      const ratio = i / total;
+      const opacity = minOpacity + (1 - ratio) * (maxOpacity - minOpacity);
+      const segment = new google.maps.Polyline({
+        path: [
+          { lat: points[i - 1].lat, lng: points[i - 1].lng },
+          { lat: points[i].lat, lng: points[i].lng },
+        ],
+        geodesic: true,
+        strokeColor: cfg.color,
+        strokeOpacity: opacity,
+        strokeWeight: 3,
+        map: this._map,
+      });
+      polylines.push(segment);
+    }
+    this.trailPolylines[entityId] = polylines;
+  }
+
   set hass(hass) {
     this._hass = hass;
     if (this._map && this._config) {
@@ -311,6 +494,8 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       
       // Carregar estado salvo do localStorage antes de inicializar valores padrão
       this._loadUIState();
+      this._loadTrails();
+      this._primeLastPositionsFromHistory();
       
       // Inicializar valores padrão apenas se não existirem no estado carregado
       if (this._uiState.trafficEnabled === undefined) {
@@ -662,6 +847,9 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         rotation: rotation,
       };
 
+      // Registrar histórico (mesmo com rastro desativado)
+      this._recordTrailPoint(entityConfig.entity, location, entityConfig);
+
       const markerTitle = this._getEntityDisplayName(entityConfig, entity);
       const shouldRotate = this._uiState.rotateImageEnabled === true;
 
@@ -868,6 +1056,9 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       // Store the new InfoBox
       this.infoBoxes[entityConfig.entity] = infoBox;
 
+      // Renderizar rastro se habilitado
+      this._renderTrail(entityConfig.entity, entityConfig);
+
       // Ajustar o centro do mapa se a opcao de seguir estiver ativada
       if (this._shouldFollow()) {
         this._centerOnMarkerWithPadding(location);
@@ -881,6 +1072,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         this.infoBoxes[entityConfig.entity].setMap(null);
         delete this.infoBoxes[entityConfig.entity];
       }
+      this._clearTrail(entityConfig.entity);
     }
   }
 

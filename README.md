@@ -22,6 +22,10 @@ entities:
   - entity: person.meu_dispositivo
     image: /local/imagens/carro.png
     image_rotated: /local/imagens/carro_rot.png
+    rastro: true
+    rastro_duracao_min: 60
+    rastro_pontos_por_min: 10
+    rastro_cor: "#00aaff"
     velocidade: sensor.velocidade_dispositivo
     altitude: sensor.altitude_dispositivo
 ```
@@ -66,8 +70,18 @@ grid_options:
   - `condition`: (Opcional) Entidade booleana que controla se o marcador aparece. Se nao definido, o cartao mostra um toggle na interface.
   - `image`: URL/arquivo local para o icone do marcador (opcional).
   - `image_rotated`: URL/arquivo local para o icone quando a rotacao estiver ativada (opcional).
+  - `rastro`: (Opcional) Ativa o rastro da entidade (`true`/`false`).
+  - `rastro_duracao_min`: (Opcional) Duracao do rastro em minutos. Padrao: `60`.
+  - `rastro_pontos_por_min`: (Opcional) Limite de pontos por minuto. Padrao: `10`.
+  - `rastro_max_pontos`: (Opcional) Limite maximo de pontos armazenados. Padrao: `600`.
+  - `rastro_cor`: (Opcional) Cor do rastro (hex). Padrao: `#00aaff`.
   - `velocidade`: Sensor de velocidade para mostrar na caixa de info.
   - `altitude`: Sensor de altitude para mostrar na caixa de info.
+
+### Rastro e historico
+
+- O rastro e persistido no navegador (localStorage).
+- A direcao inicial do carro e calculada com base no historico salvo, mesmo que o rastro esteja desativado.
 
 ### Controles na interface
 
