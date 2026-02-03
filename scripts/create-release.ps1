@@ -65,6 +65,7 @@ if ([string]::IsNullOrWhiteSpace($status)) {
 }
 
 git commit -m "Release $tagName"
+git push origin HEAD
 git tag -a $tagName -m $tagName
 git push origin $tagName
 gh release create $tagName --title $tagName --generate-notes

@@ -31,33 +31,41 @@ class PictureOverviewCaduEditor extends HTMLElement {
     if (!this._hass) {
       return;
     }
+    
+    // Se ja renderizou, apenas atualiza o hass no form e retorna
+    if (this._rendered) {
+        if (this._form) {
+            this._form.hass = this._hass;
+        }
+        return;
+    }
+
     this._rendered = true;
     this.innerHTML = "";
 
     const form = document.createElement("ha-form");
     form.hass = this._hass;
 
-    const normalizedConfig = normalizeConfig(this._config || {});
-    let formData;
-    try {
-      formData = JSON.parse(JSON.stringify(normalizedConfig));
-    } catch (error) {
-      formData = { ...normalizedConfig };
-    }
-
+    // Normaliza config inicial
+    let formData = normalizeConfig(this._config || {});
     formData = this._ensureEntitiesArray(formData);
+
     form.schema = this._buildSchema();
     form.computeLabel = (schema) => schema.label || schema.name;
     form.data = formData;
 
     form.addEventListener("value-changed", (event) => {
-      if (!this._updating) {
-        this._updating = true;
-        this._dispatchConfigChanged(event.detail.value);
-        setTimeout(() => {
-          this._updating = false;
-        }, 100);
-      }
+        // Evita loop de update se o valor nao mudou realmente
+        if (JSON.stringify(this._config) === JSON.stringify(event.detail.value)) {
+            return;
+        }
+        this._config = event.detail.value;
+        
+        // Debounce do disparo para o HA
+        if (this._debounce) clearTimeout(this._debounce);
+        this._debounce = setTimeout(() => {
+            this._dispatchConfigChanged(this._config);
+        }, 500); // Aumentei o debounce para evitar perdas durante digitacao
     });
 
     this.appendChild(form);
@@ -65,26 +73,8 @@ class PictureOverviewCaduEditor extends HTMLElement {
   }
 
   _syncFormData() {
-    if (!this._form || this._updating || !this._hass) {
-      return;
-    }
-    try {
-      this._updating = true;
-      this._form.hass = this._hass;
-      const normalizedConfig = normalizeConfig(this._config || {});
-      let formData;
-      try {
-        formData = JSON.parse(JSON.stringify(normalizedConfig));
-      } catch (error) {
-        formData = { ...normalizedConfig };
-      }
-      formData = this._ensureEntitiesArray(formData);
-      this._form.data = formData;
-    } finally {
-      setTimeout(() => {
-        this._updating = false;
-      }, 50);
-    }
+    // Esse metodo nao e mais necessario se gerenciarmos o estado localmente no _render
+    // Mantemos vazio para compatibilidade se for chamado externamente
   }
 
   _ensureEntitiesArray(formData) {
@@ -217,14 +207,11 @@ class PictureOverviewCaduEditor extends HTMLElement {
   }
 
   _dispatchConfigChanged(config) {
-    if (!config || typeof config !== "object") {
-      return;
-    }
-    const normalized = normalizeConfig(config);
-    this._config = normalized;
+    // Nao normaliza aqui para evitar alterar o que o usuario esta digitando (ex: icon parcial)
+    // A normalizacao ocorre apenas na renderizacao inicial ou quando o config vem do HA
     this.dispatchEvent(
       new CustomEvent("config-changed", {
-        detail: { config: normalized },
+        detail: { config },
         bubbles: true,
         composed: true,
       })

@@ -41,6 +41,7 @@ fi
 git add -A
 if git status --porcelain | grep -q '^'; then
   git commit -m "Release ${tag_name}"
+  git push origin HEAD
 else
   echo "Sem alteracoes para commit apos o build."
   exit 1

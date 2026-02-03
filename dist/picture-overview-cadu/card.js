@@ -10,11 +10,15 @@ class PictureOverviewCadu extends HTMLElement {
 
   setConfig(config) {
     this._config = normalizeConfig(config || {});
-    this._render();
+    // Apenas renderiza se o hass ja estiver disponivel ou for a primeira vez
+    if (this._hass) {
+        this._render();
+    }
   }
 
   set hass(hass) {
     this._hass = hass;
+    // Renderiza apenas se tiver config e ainda nao renderizou ou se precisar atualizar dados dinamicos
     if (this._config) {
       this._render();
     }
@@ -87,8 +91,8 @@ class PictureOverviewCadu extends HTMLElement {
         align-items: center;
         gap: 6px;
         color: #fff;
-        font-size: 18px;
-        font-weight: 600;
+        font-size: 16px;
+        font-weight: 500;
         text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
       }
       .overlay-title ha-icon {
@@ -108,24 +112,26 @@ class PictureOverviewCadu extends HTMLElement {
         border-radius: 12px;
         background: rgba(255, 255, 255, 0.25);
         color: #fff;
-        font-size: 14px;
-        font-weight: 600;
+        font-size: 13px;
+        font-weight: 500;
         text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
         pointer-events: auto;
-        transition: background 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+        transition: all 0.2s ease-in-out;
+        cursor: pointer;
       }
       .overlay-entity:hover {
-        background: rgba(255, 255, 255, 0.35);
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-        transform: translateY(-1px);
+        background: rgba(255, 255, 255, 0.4);
+        transform: scale(1.02);
       }
       .overlay-entity:active {
         background: rgba(255, 255, 255, 0.2);
-        box-shadow: none;
-        transform: translateY(0);
+        transform: scale(0.98);
+      }
+      .picture-wrapper .overlay {
+        transition: background 0.2s ease-in-out;
       }
       .picture-wrapper:hover .overlay {
-        background: rgba(0, 0, 0, 0.4);
+        background: rgba(0, 0, 0, 0.5);
       }
       .overlay-entity ha-icon {
         --mdc-icon-size: 18px;
