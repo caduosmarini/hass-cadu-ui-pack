@@ -1,107 +1,36 @@
-# Google Maps Car Card Cadu
+# Hass Cadu UI Pack
 
-Cartao customizado do Home Assistant para exibir entidades no Google Maps com caixas de informacao, direcao e velocidade.
+Pacote de cards customizados para Home Assistant. Cada card fica em uma pasta,
+com README proprio e entrypoint modular.
+
+Repositorio: https://github.com/caduosmarini/hass-cadu-ui-pack
+
+## Cards disponiveis
+
+- **Google Maps Car Card Cadu**  
+  Exibe entidades no Google Maps com caixas de info, direcao, velocidade e rastro.  
+  Documentacao: `google-maps-car-card-cadu/README.md`
 
 ## Instalacao (HACS)
 
 1. Adicione este repositorio como **Custom Repository** no HACS (categoria: Lovelace).
-2. Instale o cartao.
-3. Adicione o recurso no Lovelace em **Configuracao > Painel > Recursos**:
+2. Instale o pacote.
+3. Adicione os recursos no Lovelace em **Configuracao > Painel > Recursos**:
 
 ```yaml
-url: /hacsfiles/google-maps-hass-card/google-maps-car-card-cadu/index.js
+# Google Maps Car Card Cadu
+url: /hacsfiles/hass-cadu-ui-pack/google-maps-car-card-cadu/index.js
 type: module
 ```
 
 Se instalar manualmente em `/www`, use `url: /local/google-maps-car-card-cadu/index.js`.
 
-## Configuracao
-
-```yaml
-type: "custom:google-maps-car-card-cadu"
-api_key: "SUA_GOOGLE_MAPS_API_KEY"
-follow_entity: input_boolean.seguir_mapa
-entities:
-  - entity: person.meu_dispositivo
-    image: /local/imagens/carro.png
-    image_rotated: /local/imagens/carro_rot.png
-    rastro: true
-    rastro_duracao_min: 60
-    rastro_pontos_por_min: 10
-    rastro_cor: "#00aaff"
-    velocidade: sensor.velocidade_dispositivo
-    altitude: sensor.altitude_dispositivo
-```
-
-Exemplo com varias entidades:
-
-```yaml
-type: "custom:google-maps-car-card-cadu"
-api_key: "SUA_GOOGLE_MAPS_API_KEY"
-follow_entity: ""
-entities:
-  - entity: device_tracker.song_plus_premium_cadu
-    image: /local/song.png
-    velocidade: sensor.electro_song_cadu_speed
-    altitude: sensor.electro_song_cadu_location_altitude
-  - entity: device_tracker.seal
-    image: /local/seal.png
-    velocidade: sensor.electro_seal_speed
-    altitude: sensor.electro_seal_location_altitude
-grid_options:
-  columns: full
-```
-
-### Opcoes
-
-- `api_key`: Chave da API do Google Maps.
-- `follow_entity`: Entidade booleana que, quando ligada, ajusta/centraliza o mapa.
-- `modo_noturno`: (Opcional) Entidade booleana para aplicar o estilo noturno. Se nao definido, o cartao mostra um toggle na interface.
-- `transito`: (Opcional) Entidade booleana para mostrar a camada de transito. Se nao definido, o cartao mostra um toggle na interface.
-- `transito_on`: (Opcional) Liga/desliga o transito quando nao usa entidade. Padrao: `false`.
-- `modo_noturno_on`: (Opcional) Liga/desliga o modo noturno quando nao usa entidade. Padrao: `false`.
-- `seguir_on`: (Opcional) Liga/desliga o seguir quando nao usa entidade. Padrao: `false`.
-- `rotacao_on`: (Opcional) Liga/desliga a rotacao quando o menu superior estiver oculto. Padrao: `false`.
-- `historico_somente_rastro`: (Opcional) Carrega histórico apenas se o rastro estiver ativo. Padrao: `true`.
-- `historico_carregar_no_start`: (Opcional) Carrega histórico ao iniciar o card. Padrao: `true`.
-- `historico_recarregar`: (Opcional) Recarrega histórico ao alterar configuracao. Padrao: `false`.
-- `historico_limite_pontos`: (Opcional) Limite maximo de pontos do histórico. Padrao: nenhum.
-- `mostrar_menu`: (Opcional) Exibe/oculta o menu superior do cartao. Padrao: `true`.
-- `mostrar_tipo_mapa`: (Opcional) Exibe/oculta os botoes Mapa/Satelite. Padrao: `true`.
-- `mostrar_tela_cheia`: (Opcional) Exibe/oculta o botao de tela cheia. Padrao: `true`.
-- `mostrar_controles_navegacao`: (Opcional) Exibe/oculta os controles de navegacao (zoom). Padrao: `true`.
-- `ocultar_creditos`: (Opcional) Oculta a barra inferior de termos/creditos. Padrao: `false`.
-- `tipo_mapa`: (Opcional) Tipo inicial do mapa. Valores: `roadmap`, `satellite`, `hybrid`, `terrain`. Padrao: `roadmap`.
-- `entities`: Lista de entidades para exibir.
-  - `entity`: Entidade com latitude/longitude.
-  - `condition`: (Opcional) Entidade booleana que controla se o marcador aparece. Se nao definido, o cartao mostra um toggle na interface.
-  - `image`: URL/arquivo local para o icone do marcador (opcional).
-  - `image_rotated`: URL/arquivo local para o icone quando a rotacao estiver ativada (opcional).
-  - `rastro`: (Opcional) Ativa o rastro da entidade (`true`/`false`).
-  - `rastro_duracao_min`: (Opcional) Duracao do rastro em minutos. Padrao: `60`.
-  - `rastro_pontos_por_min`: (Opcional) Limite de pontos por minuto. Padrao: `10`.
-  - `rastro_max_pontos`: (Opcional) Limite maximo de pontos armazenados. Padrao: `600`.
-  - `rastro_cor`: (Opcional) Cor do rastro (hex ou RGB). Padrao: `#00aaff`.
-  - `velocidade`: Sensor de velocidade para mostrar na caixa de info.
-  - `altitude`: Sensor de altitude para mostrar na caixa de info.
-
-### Rastro e historico
-
-- O rastro usa o historico da entidade no Home Assistant (API `history/period`).
-- A direcao inicial do carro e calculada com base nesse historico, mesmo que o rastro esteja desativado.
-
-### Controles na interface
-
-- **Rotacao**: Ativa/desativa a rotacao do marcador.
-- **Seta**: Exibe/oculta a seta de direcao na caixa de info (mantem velocidade/altitude).
-
 ## Desenvolvimento
 
-O arquivo principal do cartao fica em `google-maps-car-card-cadu/index.js` e os
-outros arquivos estao na mesma pasta.
+- Cada card tem sua propria pasta e README.
+- O entrypoint de cada card fica em `index.js` dentro da pasta do card.
+- Para testar localmente, abra `test-card.html` e ajuste a API Key.
 
-## Solucao de problemas
+## Release
 
-- **`Google Maps JavaScript API error: BillingNotEnabledMapError`**: a chave da API existe, mas o faturamento nao esta habilitado no projeto do Google Cloud. Ative o faturamento e confirme se a API do Google Maps JavaScript esta habilitada no projeto. Sem isso o mapa mostra "For development purposes only" e nao carrega corretamente.
-- **`Esta pagina nao carregou o Google Maps corretamente`**: normalmente aparece junto com o erro acima ou quando a chave nao tem permissoes. Verifique a chave, restricoes de dominio/IP e se a API correta esta ativa.
-- **Erro 404 ao carregar recursos (`Failed to load resource: ... 404`)**: indica que um recurso externo ou de outro componente nao foi encontrado. Confirme se o caminho do recurso foi adicionado corretamente em **Configuracao > Painel > Recursos** e se o arquivo esta instalado.
+Use o script `scripts/create-release.ps1` (requer `git` e `gh`) com a working tree limpa.

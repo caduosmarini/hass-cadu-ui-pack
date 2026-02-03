@@ -25,10 +25,15 @@ try {
 }
 
 try {
-    $null = git remote get-url origin | Out-Null
+    $originUrl = git remote get-url origin
 } catch {
     Write-Error "Remote 'origin' nao encontrado."
     exit 1
+}
+
+$expectedRepo = "caduosmarini/hass-cadu-ui-pack"
+if ($originUrl -notmatch [regex]::Escape($expectedRepo)) {
+    Write-Warning "Origin atual nao parece ser '$expectedRepo'. URL: $originUrl"
 }
 
 $lastTag = (git tag --sort=-creatordate) | Select-Object -First 1
