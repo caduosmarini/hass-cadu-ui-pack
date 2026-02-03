@@ -306,6 +306,12 @@ class PictureOverviewCadu extends HTMLElement {
         const subtitleDiv = document.createElement("div");
         subtitleDiv.className = "overlay-subtitle";
         subtitleDiv.textContent = subtitle;
+        // Alinha o subtitulo com o texto do titulo (pula o icone)
+        if (titleIcon) {
+          subtitleDiv.style.paddingLeft = "24px"; // 18px icon + 6px gap
+        } else {
+          subtitleDiv.style.paddingLeft = "0";
+        }
         titleContainer.appendChild(subtitleDiv);
       }
 
