@@ -7,3 +7,4 @@ Sempre colocar as configurações do yaml também na UI.
 Sempre atualizar o readme.md
 Tu nunca deve compilar ou commitar algo por conta.
 Você deve desenvolver sempre dentro de dist/
+Nunca aplique correções no bundle.
