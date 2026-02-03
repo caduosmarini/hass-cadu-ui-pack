@@ -49,21 +49,6 @@ class PictureOverviewCaduEditor extends HTMLElement {
     // Normaliza config inicial
     let formData = normalizeConfig(this._config || {});
     formData = this._ensureEntitiesArray(formData);
-    
-    // Garante que tap_action sempre tenha um valor valido para o seletor renderizar
-    if (!formData.tap_action || typeof formData.tap_action !== "object") {
-      formData.tap_action = { action: "more-info" };
-    }
-    
-    // Garante que cada entidade tenha tap_action inicializado
-    if (Array.isArray(formData.entities)) {
-      formData.entities = formData.entities.map(entity => ({
-        ...entity,
-        tap_action: entity.tap_action && typeof entity.tap_action === "object" 
-          ? entity.tap_action 
-          : { action: "more-info" }
-      }));
-    }
 
     form.schema = this._buildSchema();
     form.computeLabel = (schema) => schema.label || schema.name;
@@ -124,7 +109,7 @@ class PictureOverviewCaduEditor extends HTMLElement {
       {
         name: "subtitle",
         label: "Subtitulo (opcional, aceita template jinja)",
-        selector: { text: { multiline: true } },
+        selector: { template: {} },
       },
       {
         name: "image",
@@ -173,7 +158,7 @@ class PictureOverviewCaduEditor extends HTMLElement {
       {
         name: "tap_action",
         label: "Tap action do card",
-        selector: { action: { actions: ["more-info", "toggle", "call-service", "navigate", "url", "none"] } },
+        selector: { action: {} },
       },
       {
         name: "entities",
@@ -225,7 +210,7 @@ class PictureOverviewCaduEditor extends HTMLElement {
               },
               tap_action: {
                 label: "Tap action da entidade (opcional)",
-                selector: { action: { actions: ["more-info", "toggle", "call-service", "navigate", "url", "none"] } },
+                selector: { action: {} },
               },
             },
           },
