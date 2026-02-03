@@ -55,12 +55,16 @@ if (-not [string]::IsNullOrWhiteSpace($existingTag)) {
     exit 1
 }
 
+& (Join-Path $PSScriptRoot "compilar-js.ps1")
+
+git add -A
 $status = git status --porcelain
-if (-not [string]::IsNullOrWhiteSpace($status)) {
-    Write-Error "Working tree nao esta limpa. Faça commit ou stash antes."
+if ([string]::IsNullOrWhiteSpace($status)) {
+    Write-Error "Sem alteracoes para commit apos o build."
     exit 1
 }
 
+git commit -m "Release $tagName"
 git tag -a $tagName -m $tagName
 git push origin $tagName
 gh release create $tagName --title $tagName --generate-notes
