@@ -22,11 +22,11 @@ Repositorio: https://github.com/caduosmarini/hass-cadu-ui-pack
 
 ```yaml
 # Hass Cadu UI Pack (carrega todos os cards)
-url: /hacsfiles/hass-cadu-ui-pack/index.js
+url: /hacsfiles/hass-cadu-ui-pack/dist/hass-cadu-ui-pack.js
 type: module
 ```
 
-Se instalar manualmente em `/www`, use `url: /local/index.js`.
+Se instalar manualmente em `/www`, use `url: /local/dist/hass-cadu-ui-pack.js`.
 
 ## Desenvolvimento
 

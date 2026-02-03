@@ -1,5 +1,5 @@
 {
   "name": "Hass Cadu UI Pack",
-  "filename": "index.js",
+  "filename": "dist/hass-cadu-ui-pack.js",
   "render_readme": true
 }
