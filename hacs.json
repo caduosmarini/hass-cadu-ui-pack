@@ -1,5 +1,10 @@
 {
   "name": "Google Maps Car Card Cadu",
-  "filename": "google-maps-car-card-cadu.js",
+  "filename": [
+    "google-maps-car-card-cadu/index.js",
+    "google-maps-car-card-cadu/card.js",
+    "google-maps-car-card-cadu/editor.js",
+    "google-maps-car-card-cadu/config.js"
+  ],
   "render_readme": true
 }

@@ -8,9 +8,12 @@ Cartao customizado do Home Assistant para exibir entidades no Google Maps com ca
 2. Instale o cartao.
 3. Adicione o recurso no Lovelace em **Configuracao > Painel > Recursos**:
 
+```yaml
+url: /hacsfiles/google-maps-hass-card/google-maps-car-card-cadu/index.js
+type: module
 ```
-/url/google-maps-car-card-cadu.js
-```
+
+Se instalar manualmente em `/www`, use `url: /local/google-maps-car-card-cadu/index.js`.
 
 ## Configuracao
 
@@ -94,7 +97,8 @@ grid_options:
 
 ## Desenvolvimento
 
-O arquivo principal do cartao fica em `google-maps-car-card-cadu.js`.
+O arquivo principal do cartao fica em `google-maps-car-card-cadu/index.js` e os
+outros arquivos estao na mesma pasta.
 
 ## Solucao de problemas
 
