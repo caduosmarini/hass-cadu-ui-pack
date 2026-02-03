@@ -182,6 +182,10 @@ class PictureOverviewCaduEditor extends HTMLElement {
                   },
                 },
               },
+              decimals: {
+                label: "Casas decimais (padrao 1)",
+                selector: { number: { min: 0, max: 4, step: 1 } },
+              },
               tap_action: {
                 label: "Tap action (opcional)",
                 selector: { action: {} },

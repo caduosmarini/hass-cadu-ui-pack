@@ -197,7 +197,7 @@ class PictureOverviewCadu extends HTMLElement {
         overlayEntity.appendChild(icon);
 
         const state = document.createElement("div");
-        state.textContent = this._getEntityState(entityConfig.entity);
+        state.textContent = this._getEntityState(entityConfig.entity, entityConfig);
         overlayEntity.appendChild(state);
 
         overlayTop.appendChild(overlayEntity);
@@ -244,7 +244,7 @@ class PictureOverviewCadu extends HTMLElement {
           overlayEntity.appendChild(icon);
 
           const state = document.createElement("div");
-          state.textContent = this._getEntityState(entityConfig.entity);
+          state.textContent = this._getEntityState(entityConfig.entity, entityConfig);
           overlayEntity.appendChild(state);
 
           overlayEntitiesWrap.appendChild(overlayEntity);
@@ -341,12 +341,19 @@ class PictureOverviewCadu extends HTMLElement {
     return state?.attributes?.icon || "mdi:checkbox-blank-circle-outline";
   }
 
-  _getEntityState(entityId) {
+  _getEntityState(entityId, entityConfig = null) {
     const state = this._hass?.states?.[entityId];
     if (!state) {
       return "unavailable";
     }
     const unit = state.attributes?.unit_of_measurement;
+    const decimals = Number.isFinite(entityConfig?.decimals) ? entityConfig.decimals : 1;
+    const rawValue = typeof state.state === "string" ? state.state.replace(",", ".") : state.state;
+    const numeric = Number.parseFloat(rawValue);
+    if (Number.isFinite(numeric)) {
+      const formatted = numeric.toFixed(decimals);
+      return unit ? `${formatted} ${unit}` : formatted;
+    }
     return unit ? `${state.state} ${unit}` : state.state;
   }
 

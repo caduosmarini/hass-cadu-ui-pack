@@ -67,6 +67,7 @@ O editor visual do card apresenta as mesmas opcoes do YAML: imagem (url/local ou
 - `tap_action`: Acao ao tocar na imagem.
 - `entities`: Lista de entidades para exibir (overlay usa todas com `show_state: true`).
   - `position`: `bottom` (barra inferior) ou `top` (canto superior direito).
+  - `decimals`: Numero de casas decimais quando o estado for numerico (padrao: 1).
   - `entity`: Entidade.
   - `name`: Nome customizado (opcional).
   - `icon`: Icone customizado (opcional).

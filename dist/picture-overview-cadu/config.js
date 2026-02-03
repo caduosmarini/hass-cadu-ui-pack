@@ -1,4 +1,4 @@
-const ENTITY_FIELD_ORDER = ["entity", "name", "icon", "show_state", "position", "tap_action"];
+const ENTITY_FIELD_ORDER = ["entity", "name", "icon", "show_state", "position", "decimals", "tap_action"];
 
 function normalizeEntityConfig(entityConfig) {
   if (!entityConfig || typeof entityConfig !== "object" || Array.isArray(entityConfig)) {
@@ -8,6 +8,7 @@ function normalizeEntityConfig(entityConfig) {
       icon: "",
       show_state: false,
       position: "bottom",
+      decimals: 1,
       tap_action: {},
     };
   }
@@ -20,6 +21,7 @@ function normalizeEntityConfig(entityConfig) {
       icon: entityConfig.icon || "",
       show_state: entityConfig.show_state === true,
       position: entityConfig.position || "bottom",
+      decimals: Number.isFinite(entityConfig.decimals) ? entityConfig.decimals : 1,
       tap_action: entityConfig.tap_action || {},
     };
 
@@ -51,6 +53,7 @@ function normalizeEntityConfig(entityConfig) {
       icon: entityConfig.icon || "",
       show_state: entityConfig.show_state === true,
       position: entityConfig.position || "bottom",
+      decimals: Number.isFinite(entityConfig.decimals) ? entityConfig.decimals : 1,
       tap_action: entityConfig.tap_action || {},
       ...entityConfig,
     };
