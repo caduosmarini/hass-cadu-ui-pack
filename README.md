@@ -21,17 +21,12 @@ Repositorio: https://github.com/caduosmarini/hass-cadu-ui-pack
 3. Adicione os recursos no Lovelace em **Configuracao > Painel > Recursos**:
 
 ```yaml
-# Google Maps Car Card Cadu
-url: /hacsfiles/hass-cadu-ui-pack/google-maps-car-card-cadu/index.js
-type: module
-
-# Picture Overview Cadu
-url: /hacsfiles/hass-cadu-ui-pack/picture-overview-cadu/index.js
+# Hass Cadu UI Pack (carrega todos os cards)
+url: /hacsfiles/hass-cadu-ui-pack/index.js
 type: module
 ```
 
-Se instalar manualmente em `/www`, use `url: /local/google-maps-car-card-cadu/index.js`
-e `url: /local/picture-overview-cadu/index.js`.
+Se instalar manualmente em `/www`, use `url: /local/index.js`.
 
 ## Desenvolvimento
 
