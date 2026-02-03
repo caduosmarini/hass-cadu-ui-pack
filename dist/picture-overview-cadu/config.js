@@ -59,9 +59,12 @@ function normalizeEntitiesConfig(entities) {
     return [];
   }
   return entities
-    .filter((entityConfig) => entityConfig && typeof entityConfig === "object")
+    .filter((entityConfig) => entityConfig !== null && entityConfig !== undefined)
     .map((entityConfig) => {
       try {
+        if (typeof entityConfig === "string") {
+          return normalizeEntityConfig({ entity: entityConfig });
+        }
         return normalizeEntityConfig(entityConfig);
       } catch (error) {
         console.error("Erro ao normalizar entidade:", error, entityConfig);
