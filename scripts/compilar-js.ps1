@@ -3,72 +3,19 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 function Ensure-Esbuild {
+    $rootDir = Join-Path $PSScriptRoot ".."
+    $esbuildPath = Join-Path $rootDir "node_modules\.bin\esbuild.cmd"
+    if (Test-Path $esbuildPath) {
+        return $esbuildPath
+    }
+
     $npx = Get-Command npx -ErrorAction SilentlyContinue
     if ($npx) {
         return "npx"
     }
 
-    $toolsDir = Join-Path $PSScriptRoot "..\tools"
-    $esbuildPath = Join-Path $toolsDir "esbuild.exe"
-    if (Test-Path $esbuildPath) {
-        return $esbuildPath
-    }
-
-    Write-Host "Baixando esbuild..."
-    New-Item -ItemType Directory -Force -Path $toolsDir | Out-Null
-    $zipPath = Join-Path $toolsDir "esbuild.zip"
-    $tgzPath = Join-Path $toolsDir "esbuild.tgz"
-    $esbuildVersion = "0.24.2"
-    $downloadUrls = @(
-        "https://github.com/evanw/esbuild/releases/download/v$esbuildVersion/esbuild-windows-64.zip",
-        "https://github.com/evanw/esbuild/releases/download/v$esbuildVersion/esbuild-windows-64.zip?raw=1",
-        "https://registry.npmjs.org/esbuild-windows-64/-/esbuild-windows-64-$esbuildVersion.tgz"
-    )
-
-    $downloaded = $false
-    $downloadPath = $null
-    foreach ($url in $downloadUrls) {
-        try {
-            if ($url.EndsWith(".tgz")) {
-                $downloadPath = $tgzPath
-            } else {
-                $downloadPath = $zipPath
-            }
-            Invoke-WebRequest -Uri $url -OutFile $downloadPath -ErrorAction Stop
-            $downloaded = $true
-            break
-        } catch {
-            Write-Warning "Falha ao baixar: $url"
-        }
-    }
-
-    if (-not $downloaded) {
-        Write-Error "Nao foi possivel baixar o esbuild."
-        exit 1
-    }
-    if ($downloadPath -eq $tgzPath) {
-        tar -xf $tgzPath -C $toolsDir
-        Remove-Item $tgzPath -Force
-        $candidate = Join-Path $toolsDir "package\esbuild.exe"
-        if (Test-Path $candidate) {
-            Move-Item -Path $candidate -Destination $esbuildPath -Force
-            Remove-Item -Path (Join-Path $toolsDir "package") -Recurse -Force
-        }
-    } else {
-        Expand-Archive -Path $zipPath -DestinationPath $toolsDir -Force
-        Remove-Item $zipPath -Force
-        $candidate = Join-Path $toolsDir "package\esbuild.exe"
-        if (Test-Path $candidate) {
-            Move-Item -Path $candidate -Destination $esbuildPath -Force
-            Remove-Item -Path (Join-Path $toolsDir "package") -Recurse -Force
-        }
-    }
-
-    if (-not (Test-Path $esbuildPath)) {
-        Write-Error "Nao foi possivel preparar o esbuild."
-        exit 1
-    }
-    return $esbuildPath
+    Write-Error "Esbuild nao encontrado. Rode: npm install --save-exact --save-dev esbuild"
+    exit 1
 }
 
 $rootDir = Join-Path $PSScriptRoot ".."
