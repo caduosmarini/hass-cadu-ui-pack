@@ -51,6 +51,37 @@ class PictureOverviewCadu extends HTMLElement {
         height: 100%;
         object-fit: var(--po-fit-mode);
       }
+      .overlay {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        padding: 10px 12px;
+        gap: 12px;
+        pointer-events: none;
+      }
+      .overlay-title {
+        color: #fff;
+        font-size: 18px;
+        font-weight: 600;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+      }
+      .overlay-entity {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: #fff;
+        font-size: 14px;
+        font-weight: 600;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+        pointer-events: auto;
+      }
+      .overlay-entity ha-icon {
+        --mdc-icon-size: 18px;
+      }
       .picture-placeholder {
         position: absolute;
         inset: 0;
@@ -61,32 +92,9 @@ class PictureOverviewCadu extends HTMLElement {
         background: var(--secondary-background-color);
         font-size: 14px;
       }
-      .entities {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        padding: 12px 16px 16px;
-      }
-      .entity-row {
-        display: grid;
-        grid-template-columns: 24px 1fr auto;
-        align-items: center;
-        gap: 10px;
-        cursor: pointer;
-      }
-      .entity-name {
-        font-weight: 500;
-      }
-      .entity-state {
-        color: var(--secondary-text-color);
-        font-size: 12px;
-      }
     `;
 
     const card = document.createElement("ha-card");
-    if (this._config?.title) {
-      card.setAttribute("header", this._config.title);
-    }
 
     const pictureWrapper = document.createElement("div");
     pictureWrapper.className = "picture-wrapper";
@@ -114,41 +122,44 @@ class PictureOverviewCadu extends HTMLElement {
       pictureWrapper.appendChild(placeholder);
     }
 
-    card.appendChild(pictureWrapper);
+    const overlay = document.createElement("div");
+    overlay.className = "overlay";
 
-    const entities = Array.isArray(this._config?.entities) ? this._config.entities : [];
-    if (entities.length > 0) {
-      const entitiesContainer = document.createElement("div");
-      entitiesContainer.className = "entities";
-      entities.forEach((entityConfig) => {
-        if (!entityConfig?.entity) return;
-        const row = document.createElement("div");
-        row.className = "entity-row";
-        row.addEventListener("click", () => {
-          const action = entityConfig.tap_action || this._config?.tap_action;
-          this._handleAction(action, entityConfig.entity);
-        });
-
-        const icon = document.createElement("ha-icon");
-        icon.icon = this._getEntityIcon(entityConfig);
-        row.appendChild(icon);
-
-        const name = document.createElement("div");
-        name.className = "entity-name";
-        name.textContent = this._getEntityName(entityConfig);
-        row.appendChild(name);
-
-        const state = document.createElement("div");
-        state.className = "entity-state";
-        state.textContent = entityConfig.show_state === true
-          ? this._getEntityState(entityConfig.entity)
-          : "";
-        row.appendChild(state);
-
-        entitiesContainer.appendChild(row);
-      });
-      card.appendChild(entitiesContainer);
+    const titleText = this._config?.title || "";
+    if (titleText) {
+      const overlayTitle = document.createElement("div");
+      overlayTitle.className = "overlay-title";
+      overlayTitle.textContent = titleText;
+      overlay.appendChild(overlayTitle);
+    } else {
+      const spacer = document.createElement("div");
+      spacer.style.flex = "1";
+      overlay.appendChild(spacer);
     }
+
+    const overlayEntityConfig = this._getOverlayEntityConfig();
+    if (overlayEntityConfig) {
+      const overlayEntity = document.createElement("div");
+      overlayEntity.className = "overlay-entity";
+      overlayEntity.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const action = overlayEntityConfig.tap_action || this._config?.tap_action;
+        this._handleAction(action, overlayEntityConfig.entity);
+      });
+
+      const icon = document.createElement("ha-icon");
+      icon.icon = this._getEntityIcon(overlayEntityConfig);
+      overlayEntity.appendChild(icon);
+
+      const state = document.createElement("div");
+      state.textContent = this._getEntityState(overlayEntityConfig.entity);
+      overlayEntity.appendChild(state);
+
+      overlay.appendChild(overlayEntity);
+    }
+
+    pictureWrapper.appendChild(overlay);
+    card.appendChild(pictureWrapper);
 
     this.shadowRoot.innerHTML = "";
     this.shadowRoot.appendChild(this._styleElement);
@@ -205,6 +216,15 @@ class PictureOverviewCadu extends HTMLElement {
   _getPrimaryEntityId() {
     const entities = Array.isArray(this._config?.entities) ? this._config.entities : [];
     return entities.length > 0 ? entities[0].entity : null;
+  }
+
+  _getOverlayEntityConfig() {
+    const entities = Array.isArray(this._config?.entities) ? this._config.entities : [];
+    if (entities.length === 0) {
+      return null;
+    }
+    const withState = entities.find((entityConfig) => entityConfig?.show_state === true);
+    return withState || entities[0];
   }
 
   _getEntityName(entityConfig) {

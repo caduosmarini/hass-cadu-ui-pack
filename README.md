@@ -11,7 +11,7 @@ Repositorio: https://github.com/caduosmarini/hass-cadu-ui-pack
   Exibe entidades no Google Maps com caixas de info, direcao, velocidade e rastro.  
   Documentacao: `google-maps-car-card-cadu/README.md`
 - **Picture Overview Cadu**  
-  Imagem com entidades e tap_action no estilo picture-glance.  
+  Imagem com titulo e entidade em overlay no estilo picture-glance.  
   Documentacao: `picture-overview-cadu/README.md`
 
 ## Instalacao (HACS)
