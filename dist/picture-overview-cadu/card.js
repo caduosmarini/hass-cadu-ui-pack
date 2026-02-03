@@ -364,17 +364,21 @@ class PictureOverviewCadu extends HTMLElement {
     if (!template.includes("{%") && !template.includes("{{")) {
       return template;
     }
-    const fallback = this._tryRenderTemplateFallback(template);
     // Renderizar template via HA se possivel
     try {
       if (!this._hass || typeof this._hass.callWS !== "function") {
-        return fallback;
+        return this._tryRenderTemplateFallback(template);
       }
       const now = Date.now();
       const cached = this._templateCache.get(template);
-      const cachedValue = cached ? cached.value : "";
-      const shouldRefresh = !cached || now - cached.ts > 1000;
-      if (shouldRefresh && !this._templateRequests.has(template)) {
+      
+      // Se tem cache válido, retorna
+      if (cached && now - cached.ts < 1000) {
+        return cached.value;
+      }
+      
+      // Se não tem request em andamento, dispara um novo
+      if (!this._templateRequests.has(template)) {
         const request = this._hass
           .callWS({ type: "render_template", template })
           .then((response) => {
@@ -389,30 +393,39 @@ class PictureOverviewCadu extends HTMLElement {
               ts: Date.now(),
             });
             this._templateRequests.delete(template);
-            this._updateCard();
+            // Atualiza o card quando o template resolver
+            requestAnimationFrame(() => this._updateCard());
           })
-          .catch(() => {
+          .catch((error) => {
+            console.warn("Erro ao renderizar template:", error);
             this._templateRequests.delete(template);
           });
         this._templateRequests.set(template, request);
       }
-      return cachedValue || fallback;
+      
+      // Retorna cache existente (mesmo que expirado) ou fallback
+      return cached ? cached.value : this._tryRenderTemplateFallback(template);
     } catch (error) {
-      return fallback;
+      return this._tryRenderTemplateFallback(template);
     }
   }
 
   _tryRenderTemplateFallback(template) {
     try {
+      // Tenta extrair states('entity_id') simples
       const stateMatch = template.match(/states\(['"]([^'"]+)['"]\)/);
       if (stateMatch) {
         const entityId = stateMatch[1];
         const state = this._hass?.states?.[entityId];
-        return state ? state.state : "";
+        if (state) {
+          // Substitui states('...') pelo valor do estado
+          return template.replace(/\{\{[\s\S]*?\}\}/, state.state);
+        }
       }
-      return template;
+      // Se não conseguiu fazer fallback, retorna vazio para não mostrar o template cru
+      return "";
     } catch (error) {
-      return template;
+      return "";
     }
   }
 
@@ -493,9 +506,15 @@ class PictureOverviewCadu extends HTMLElement {
     const state = this._hass?.states?.[entityConfig.entity];
     if (state) {
       const icon = document.createElement("ha-state-icon");
+      icon.hass = this._hass;
       icon.stateObj = state;
       if (iconOverride && iconOverride !== "") {
         icon.icon = iconOverride;
+      } else {
+        const resolved = this._getEntityIconFromState(state);
+        if (resolved) {
+          icon.icon = resolved;
+        }
       }
       return icon;
     }
@@ -505,6 +524,21 @@ class PictureOverviewCadu extends HTMLElement {
         ? iconOverride
         : "mdi:checkbox-blank-circle-outline";
     return icon;
+  }
+
+  _getEntityIconFromState(state) {
+    if (!state) {
+      return "";
+    }
+    const attrIcon = state.attributes?.icon;
+    if (attrIcon) {
+      return attrIcon;
+    }
+    const deviceClass = state.attributes?.device_class;
+    if (deviceClass === "temperature") {
+      return "mdi:thermometer";
+    }
+    return "";
   }
 
   _getEntityState(entityId, entityConfig = null) {
