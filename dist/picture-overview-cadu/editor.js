@@ -158,7 +158,7 @@ class PictureOverviewCaduEditor extends HTMLElement {
       {
         name: "tap_action",
         label: "Tap action do card",
-        selector: { action: {} },
+        selector: { ui_action: {} },
       },
       {
         name: "entities",
@@ -210,7 +210,7 @@ class PictureOverviewCaduEditor extends HTMLElement {
               },
               tap_action: {
                 label: "Tap action da entidade (opcional)",
-                selector: { action: {} },
+                selector: { ui_action: {} },
               },
             },
           },

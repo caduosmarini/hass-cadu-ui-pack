@@ -58,13 +58,13 @@ entities: []
 
 ## Configuracao (UI)
 
-O editor visual do card apresenta as mesmas opcoes do YAML: imagem (url/local ou media_content_id), entidade de imagem, aspect ratio, fit mode, camera view, tap action e lista de entidades (a primeira com `show_state: true` aparece no overlay).
+O editor visual do card apresenta as mesmas opcoes do YAML: imagem (url/local ou media_content_id), entidade de imagem, aspect ratio, fit mode, camera view, tap action (selector de UI) e lista de entidades (a primeira com `show_state: true` aparece no overlay).
 
 ## Opcoes
 
 - `title`: Titulo do card.
 - `title_icon`: Icone ao lado do titulo (opcional).
-- `subtitle`: Subtitulo abaixo do titulo (opcional, aceita template jinja).
+- `subtitle`: Subtitulo abaixo do titulo (opcional, aceita template jinja, renderizado via `render_template`).
 - `image`: URL/arquivo local da imagem (opcional). Tambem aceita objeto com `media_content_id`.
 - `image_media_content_id`: Alternativa de UI para preencher `image.media_content_id`.
 - `image_entity`: Entidade de imagem/camera (opcional).

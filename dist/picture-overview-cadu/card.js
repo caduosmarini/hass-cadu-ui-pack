@@ -7,6 +7,8 @@ class PictureOverviewCadu extends HTMLElement {
     this._styleElement = document.createElement("style");
     this.shadowRoot.appendChild(this._styleElement);
     this._rendered = false;
+    this._templateCache = new Map();
+    this._templateRequests = new Map();
   }
 
   setConfig(config) {
@@ -363,19 +365,52 @@ class PictureOverviewCadu extends HTMLElement {
     if (!template.includes("{%") && !template.includes("{{")) {
       return template;
     }
+    const fallback = this._tryRenderTemplateFallback(template);
     // Renderizar template via HA se possivel
     try {
-      if (this._hass && typeof this._hass.callWS === "function") {
-        // Async rendering não funciona bem aqui, então vamos simplificar
-        // O usuario pode usar states() direto no subtitle para valores dinamicos
-        return template;
+      if (!this._hass || typeof this._hass.callWS !== "function") {
+        return fallback;
       }
-      // Fallback: tentar avaliar templates simples
+      const now = Date.now();
+      const cached = this._templateCache.get(template);
+      if (cached && now - cached.ts < 1000) {
+        return cached.value;
+      }
+      if (!this._templateRequests.has(template)) {
+        const request = this._hass
+          .callWS({ type: "render_template", template })
+          .then((response) => {
+            const result =
+              typeof response === "string"
+                ? response
+                : response && typeof response === "object" && "result" in response
+                  ? response.result
+                  : "";
+            this._templateCache.set(template, {
+              value: String(result || ""),
+              ts: Date.now(),
+            });
+            this._templateRequests.delete(template);
+            this._updateCard();
+          })
+          .catch(() => {
+            this._templateRequests.delete(template);
+          });
+        this._templateRequests.set(template, request);
+      }
+      return cached ? cached.value : fallback;
+    } catch (error) {
+      return fallback;
+    }
+  }
+
+  _tryRenderTemplateFallback(template) {
+    try {
       const stateMatch = template.match(/states\(['"]([^'"]+)['"]\)/);
       if (stateMatch) {
         const entityId = stateMatch[1];
         const state = this._hass?.states?.[entityId];
-        return state ? state.state : template;
+        return state ? state.state : "";
       }
       return template;
     } catch (error) {
