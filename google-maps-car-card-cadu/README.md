@@ -104,7 +104,7 @@ API key, entidades, rastro, modo noturno, transito, seguir, rotacao, limites de 
 
 ## Desenvolvimento
 
-O entrypoint do card fica em `google-maps-car-card-cadu/index.js`.
+O entrypoint publicado fica em `dist/hass-cadu-ui-pack.js`.
 
 ## Solucao de problemas
 

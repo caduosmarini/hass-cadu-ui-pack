@@ -73,4 +73,4 @@ O editor visual do card apresenta as mesmas opcoes do YAML: imagem (url/local ou
 
 ## Desenvolvimento
 
-O entrypoint do card fica em `picture-overview-cadu/index.js`.
+O entrypoint publicado fica em `dist/hass-cadu-ui-pack.js`.

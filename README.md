@@ -31,7 +31,7 @@ Se instalar manualmente em `/www`, use `url: /local/dist/hass-cadu-ui-pack.js`.
 ## Desenvolvimento
 
 - Cada card tem sua propria pasta e README.
-- O entrypoint de cada card fica em `index.js` dentro da pasta do card.
+- O entrypoint publicado fica em `dist/hass-cadu-ui-pack.js`.
 - Para testar localmente, abra `test-card.html` e ajuste a API Key.
 
 ## Release
