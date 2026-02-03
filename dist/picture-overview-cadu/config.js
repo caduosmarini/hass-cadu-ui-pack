@@ -1,4 +1,4 @@
-const ENTITY_FIELD_ORDER = ["entity", "name", "icon", "show_state", "tap_action"];
+const ENTITY_FIELD_ORDER = ["entity", "name", "icon", "show_state", "position", "tap_action"];
 
 function normalizeEntityConfig(entityConfig) {
   if (!entityConfig || typeof entityConfig !== "object" || Array.isArray(entityConfig)) {
@@ -7,6 +7,7 @@ function normalizeEntityConfig(entityConfig) {
       name: "",
       icon: "",
       show_state: false,
+      position: "bottom",
       tap_action: {},
     };
   }
@@ -18,6 +19,7 @@ function normalizeEntityConfig(entityConfig) {
       name: entityConfig.name || "",
       icon: entityConfig.icon || "",
       show_state: entityConfig.show_state === true,
+      position: entityConfig.position || "bottom",
       tap_action: entityConfig.tap_action || {},
     };
 
@@ -48,6 +50,7 @@ function normalizeEntityConfig(entityConfig) {
       name: entityConfig.name || "",
       icon: entityConfig.icon || "",
       show_state: entityConfig.show_state === true,
+      position: entityConfig.position || "bottom",
       tap_action: entityConfig.tap_action || {},
       ...entityConfig,
     };
@@ -89,6 +92,7 @@ function normalizeConfig(config) {
   if (!config || typeof config !== "object") {
     return {
       title: "",
+      title_icon: "",
       image: "",
       image_media_content_id: "",
       image_entity: "",
@@ -116,6 +120,7 @@ function normalizeConfig(config) {
         : "";
     const normalized = {
       title: config.title || "",
+      title_icon: config.title_icon || "",
       image: normalizedImage,
       image_media_content_id: imageMediaContentId,
       image_entity: config.image_entity || "",
@@ -149,6 +154,7 @@ function normalizeConfig(config) {
         : "";
     return {
       title: config.title || "",
+      title_icon: config.title_icon || "",
       image: normalizedImage,
       image_media_content_id: imageMediaContentId,
       image_entity: config.image_entity || "",

@@ -34,10 +34,16 @@ class PictureOverviewCadu extends HTMLElement {
       :host {
         display: block;
       }
+      ha-card {
+        border-radius: 10px;
+        overflow: hidden;
+      }
       .picture-wrapper {
         position: relative;
         width: 100%;
         cursor: pointer;
+        border-radius: inherit;
+        overflow: hidden;
       }
       .picture-spacer {
         display: block;
@@ -61,23 +67,65 @@ class PictureOverviewCadu extends HTMLElement {
         align-items: flex-end;
         padding: 10px 12px;
         gap: 12px;
+        background: rgba(0, 0, 0, 0.35);
+        border-radius: 0 0 6px 6px;
+        pointer-events: none;
+      }
+      .overlay-top {
+        position: absolute;
+        top: 0;
+        right: 0;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 8px;
+        padding: 8px 12px;
         pointer-events: none;
       }
       .overlay-title {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
         color: #fff;
         font-size: 18px;
         font-weight: 600;
         text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
       }
+      .overlay-title ha-icon {
+        --mdc-icon-size: 18px;
+      }
+      .overlay-entities {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 8px;
+      }
       .overlay-entity {
         display: inline-flex;
         align-items: center;
         gap: 6px;
+        padding: 4px 8px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.25);
         color: #fff;
         font-size: 14px;
         font-weight: 600;
         text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
         pointer-events: auto;
+        transition: background 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+      }
+      .overlay-entity:hover {
+        background: rgba(255, 255, 255, 0.35);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        transform: translateY(-1px);
+      }
+      .overlay-entity:active {
+        background: rgba(255, 255, 255, 0.2);
+        box-shadow: none;
+        transform: translateY(0);
+      }
+      .picture-wrapper:hover .overlay {
+        background: rgba(0, 0, 0, 0.4);
       }
       .overlay-entity ha-icon {
         --mdc-icon-size: 18px;
@@ -122,43 +170,90 @@ class PictureOverviewCadu extends HTMLElement {
       pictureWrapper.appendChild(placeholder);
     }
 
-    const overlay = document.createElement("div");
-    overlay.className = "overlay";
-
     const titleText = this._config?.title || "";
-    if (titleText) {
-      const overlayTitle = document.createElement("div");
-      overlayTitle.className = "overlay-title";
-      overlayTitle.textContent = titleText;
-      overlay.appendChild(overlayTitle);
-    } else {
-      const spacer = document.createElement("div");
-      spacer.style.flex = "1";
-      overlay.appendChild(spacer);
-    }
+    const titleIcon = this._config?.title_icon || "";
+    const overlayEntities = this._getOverlayEntityConfigs();
+    const bottomEntities = overlayEntities.filter(
+      (entityConfig) => (entityConfig.position || "bottom") === "bottom"
+    );
+    const topEntities = overlayEntities.filter(
+      (entityConfig) => (entityConfig.position || "bottom") === "top"
+    );
 
-    const overlayEntityConfig = this._getOverlayEntityConfig();
-    if (overlayEntityConfig) {
-      const overlayEntity = document.createElement("div");
-      overlayEntity.className = "overlay-entity";
-      overlayEntity.addEventListener("click", (event) => {
-        event.stopPropagation();
-        const action = overlayEntityConfig.tap_action || this._config?.tap_action;
-        this._handleAction(action, overlayEntityConfig.entity);
+    if (topEntities.length > 0) {
+      const overlayTop = document.createElement("div");
+      overlayTop.className = "overlay-top";
+      topEntities.forEach((entityConfig) => {
+        const overlayEntity = document.createElement("div");
+        overlayEntity.className = "overlay-entity";
+        overlayEntity.addEventListener("click", (event) => {
+          event.stopPropagation();
+          const action = entityConfig.tap_action || this._config?.tap_action;
+          this._handleAction(action, entityConfig.entity);
+        });
+
+        const icon = document.createElement("ha-icon");
+        icon.icon = this._getEntityIcon(entityConfig);
+        overlayEntity.appendChild(icon);
+
+        const state = document.createElement("div");
+        state.textContent = this._getEntityState(entityConfig.entity);
+        overlayEntity.appendChild(state);
+
+        overlayTop.appendChild(overlayEntity);
       });
-
-      const icon = document.createElement("ha-icon");
-      icon.icon = this._getEntityIcon(overlayEntityConfig);
-      overlayEntity.appendChild(icon);
-
-      const state = document.createElement("div");
-      state.textContent = this._getEntityState(overlayEntityConfig.entity);
-      overlayEntity.appendChild(state);
-
-      overlay.appendChild(overlayEntity);
+      pictureWrapper.appendChild(overlayTop);
     }
 
-    pictureWrapper.appendChild(overlay);
+    if (titleText || bottomEntities.length > 0) {
+      const overlay = document.createElement("div");
+      overlay.className = "overlay";
+
+      if (titleText) {
+        const overlayTitle = document.createElement("div");
+        overlayTitle.className = "overlay-title";
+        if (titleIcon) {
+          const icon = document.createElement("ha-icon");
+          icon.icon = titleIcon;
+          overlayTitle.appendChild(icon);
+        }
+        const titleSpan = document.createElement("span");
+        titleSpan.textContent = titleText;
+        overlayTitle.appendChild(titleSpan);
+        overlay.appendChild(overlayTitle);
+      } else {
+        const spacer = document.createElement("div");
+        spacer.style.flex = "1";
+        overlay.appendChild(spacer);
+      }
+
+      if (bottomEntities.length > 0) {
+        const overlayEntitiesWrap = document.createElement("div");
+        overlayEntitiesWrap.className = "overlay-entities";
+        bottomEntities.forEach((entityConfig) => {
+          const overlayEntity = document.createElement("div");
+          overlayEntity.className = "overlay-entity";
+          overlayEntity.addEventListener("click", (event) => {
+            event.stopPropagation();
+            const action = entityConfig.tap_action || this._config?.tap_action;
+            this._handleAction(action, entityConfig.entity);
+          });
+
+          const icon = document.createElement("ha-icon");
+          icon.icon = this._getEntityIcon(entityConfig);
+          overlayEntity.appendChild(icon);
+
+          const state = document.createElement("div");
+          state.textContent = this._getEntityState(entityConfig.entity);
+          overlayEntity.appendChild(state);
+
+          overlayEntitiesWrap.appendChild(overlayEntity);
+        });
+        overlay.appendChild(overlayEntitiesWrap);
+      }
+
+      pictureWrapper.appendChild(overlay);
+    }
     card.appendChild(pictureWrapper);
 
     this.shadowRoot.innerHTML = "";
@@ -218,13 +313,16 @@ class PictureOverviewCadu extends HTMLElement {
     return entities.length > 0 ? entities[0].entity : null;
   }
 
-  _getOverlayEntityConfig() {
+  _getOverlayEntityConfigs() {
     const entities = Array.isArray(this._config?.entities) ? this._config.entities : [];
     if (entities.length === 0) {
-      return null;
+      return [];
     }
-    const withState = entities.find((entityConfig) => entityConfig?.show_state === true);
-    return withState || entities[0];
+    const withState = entities.filter((entityConfig) => entityConfig?.show_state === true);
+    if (withState.length > 0) {
+      return withState;
+    }
+    return [entities[0]];
   }
 
   _getEntityName(entityConfig) {

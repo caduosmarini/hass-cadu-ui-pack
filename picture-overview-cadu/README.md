@@ -1,6 +1,6 @@
 # Picture Overview Cadu
 
-Card customizado do Home Assistant para mostrar uma imagem com titulo e entidade em overlay, no estilo do picture-glance.
+Card customizado do Home Assistant para mostrar uma imagem com titulo e entidades em overlay, no estilo do picture-glance.
 
 Repositorio: https://github.com/caduosmarini/hass-cadu-ui-pack
 
@@ -57,6 +57,7 @@ O editor visual do card apresenta as mesmas opcoes do YAML: imagem (url/local ou
 ## Opcoes
 
 - `title`: Titulo do card.
+- `title_icon`: Icone ao lado do titulo (opcional).
 - `image`: URL/arquivo local da imagem (opcional). Tambem aceita objeto com `media_content_id`.
 - `image_media_content_id`: Alternativa de UI para preencher `image.media_content_id`.
 - `image_entity`: Entidade de imagem/camera (opcional).
@@ -64,7 +65,8 @@ O editor visual do card apresenta as mesmas opcoes do YAML: imagem (url/local ou
 - `fit_mode`: `cover` ou `contain`. Padrao: `cover`.
 - `camera_view`: `auto` ou `live`. Padrao: `auto`.
 - `tap_action`: Acao ao tocar na imagem.
-- `entities`: Lista de entidades para exibir (overlay usa a primeira com `show_state: true`).
+- `entities`: Lista de entidades para exibir (overlay usa todas com `show_state: true`).
+  - `position`: `bottom` (barra inferior) ou `top` (canto superior direito).
   - `entity`: Entidade.
   - `name`: Nome customizado (opcional).
   - `icon`: Icone customizado (opcional).

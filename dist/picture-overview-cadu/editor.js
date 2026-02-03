@@ -93,6 +93,11 @@ class PictureOverviewCaduEditor extends HTMLElement {
         selector: { text: {} },
       },
       {
+        name: "title_icon",
+        label: "Icone do titulo (opcional)",
+        selector: { icon: {} },
+      },
+      {
         name: "image",
         label: "Imagem (url/local)",
         selector: { text: {} },
@@ -165,6 +170,17 @@ class PictureOverviewCaduEditor extends HTMLElement {
               show_state: {
                 label: "Mostrar estado",
                 selector: { boolean: {} },
+              },
+              position: {
+                label: "Posicao do overlay",
+                selector: {
+                  select: {
+                    options: [
+                      { label: "Inferior", value: "bottom" },
+                      { label: "Superior direita", value: "top" },
+                    ],
+                  },
+                },
               },
               tap_action: {
                 label: "Tap action (opcional)",
