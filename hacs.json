@@ -4,7 +4,11 @@
     "google-maps-car-card-cadu/index.js",
     "google-maps-car-card-cadu/card.js",
     "google-maps-car-card-cadu/editor.js",
-    "google-maps-car-card-cadu/config.js"
+    "google-maps-car-card-cadu/config.js",
+    "picture-overview-cadu/index.js",
+    "picture-overview-cadu/card.js",
+    "picture-overview-cadu/editor.js",
+    "picture-overview-cadu/config.js"
   ],
   "render_readme": true
 }
