@@ -108,6 +108,15 @@ function normalizeConfig(config) {
   }
 
   try {
+    const normalizeTitleIcon = (value) => {
+      if (typeof value === "string") {
+        return value;
+      }
+      if (value && typeof value === "object") {
+        return value.icon || value.value || "";
+      }
+      return "";
+    };
     const normalizedEntities = normalizeEntitiesConfig(config.entities || []);
     let imageMediaContentId = "";
     if (config.image && typeof config.image === "object") {
@@ -123,7 +132,7 @@ function normalizeConfig(config) {
         : "";
     const normalized = {
       title: config.title || "",
-      title_icon: config.title_icon || "",
+      title_icon: normalizeTitleIcon(config.title_icon),
       image: normalizedImage,
       image_media_content_id: imageMediaContentId,
       image_entity: config.image_entity || "",
@@ -143,6 +152,15 @@ function normalizeConfig(config) {
     return normalized;
   } catch (error) {
     console.error("Erro ao normalizar configuração:", error, config);
+    const normalizeTitleIcon = (value) => {
+      if (typeof value === "string") {
+        return value;
+      }
+      if (value && typeof value === "object") {
+        return value.icon || value.value || "";
+      }
+      return "";
+    };
     let imageMediaContentId = "";
     if (config.image && typeof config.image === "object") {
       imageMediaContentId = config.image.media_content_id || "";
@@ -157,7 +175,7 @@ function normalizeConfig(config) {
         : "";
     return {
       title: config.title || "",
-      title_icon: config.title_icon || "",
+      title_icon: normalizeTitleIcon(config.title_icon),
       image: normalizedImage,
       image_media_content_id: imageMediaContentId,
       image_entity: config.image_entity || "",

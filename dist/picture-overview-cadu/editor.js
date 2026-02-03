@@ -45,6 +45,7 @@ class PictureOverviewCaduEditor extends HTMLElement {
       formData = { ...normalizedConfig };
     }
 
+    formData = this._ensureEntitiesArray(formData);
     form.schema = this._buildSchema();
     form.computeLabel = (schema) => schema.label || schema.name;
     form.data = formData;
@@ -77,12 +78,30 @@ class PictureOverviewCaduEditor extends HTMLElement {
       } catch (error) {
         formData = { ...normalizedConfig };
       }
+      formData = this._ensureEntitiesArray(formData);
       this._form.data = formData;
     } finally {
       setTimeout(() => {
         this._updating = false;
       }, 50);
     }
+  }
+
+  _ensureEntitiesArray(formData) {
+    if (!formData || typeof formData !== "object") {
+      return formData;
+    }
+    if (Array.isArray(formData.entities)) {
+      return formData;
+    }
+    if (formData.entities && typeof formData.entities === "object") {
+      const ordered = Object.keys(formData.entities)
+        .filter((key) => /^\d+$/.test(key))
+        .sort((a, b) => Number(a) - Number(b))
+        .map((key) => formData.entities[key]);
+      return { ...formData, entities: ordered };
+    }
+    return { ...formData, entities: [] };
   }
 
   _buildSchema() {
