@@ -55,22 +55,34 @@ function normalizeEntityConfig(entityConfig) {
 }
 
 function normalizeEntitiesConfig(entities) {
-  if (!Array.isArray(entities)) {
-    return [];
-  }
-  return entities
-    .filter((entityConfig) => entityConfig !== null && entityConfig !== undefined)
-    .map((entityConfig) => {
-      try {
-        if (typeof entityConfig === "string") {
-          return normalizeEntityConfig({ entity: entityConfig });
+  if (Array.isArray(entities)) {
+    return entities
+      .filter((entityConfig) => entityConfig !== null && entityConfig !== undefined)
+      .map((entityConfig) => {
+        try {
+          if (typeof entityConfig === "string") {
+            return normalizeEntityConfig({ entity: entityConfig });
+          }
+          return normalizeEntityConfig(entityConfig);
+        } catch (error) {
+          console.error("Erro ao normalizar entidade:", error, entityConfig);
+          return entityConfig;
         }
-        return normalizeEntityConfig(entityConfig);
-      } catch (error) {
-        console.error("Erro ao normalizar entidade:", error, entityConfig);
-        return entityConfig;
-      }
-    });
+      });
+  }
+
+  if (entities && typeof entities === "object") {
+    const keys = Object.keys(entities);
+    const ordered = keys
+      .filter((key) => /^\d+$/.test(key))
+      .sort((a, b) => Number(a) - Number(b))
+      .map((key) => entities[key]);
+    if (ordered.length > 0) {
+      return normalizeEntitiesConfig(ordered);
+    }
+  }
+
+  return [];
 }
 
 function normalizeConfig(config) {
