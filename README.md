@@ -9,10 +9,10 @@ Repositorio: https://github.com/caduosmarini/hass-cadu-ui-pack
 
 - **Google Maps Car Card Cadu**  
   Exibe entidades no Google Maps com caixas de info, direcao, velocidade e rastro.  
-  Documentacao: `google-maps-car-card-cadu/README.md`
+  Documentacao: [google-maps-car-card-cadu/README.md](google-maps-car-card-cadu/README.md)
 - **Picture Overview Cadu**  
   Imagem com titulo e entidades em overlay no estilo picture-glance.  
-  Documentacao: `picture-overview-cadu/README.md`
+  Documentacao: [picture-overview-cadu/README.md](picture-overview-cadu/README.md)
 
 ## Instalacao (HACS)
 
@@ -33,7 +33,7 @@ Se instalar manualmente em `/www`, use `url: /local/hass-cadu-ui-pack.js`.
 - Cada card tem sua propria pasta e README.
 - O entrypoint publicado fica em `hass-cadu-ui-pack.js`.
 - Para testar localmente, abra `test-card.html` e ajuste a API Key.
-- Guia de desenvolvimento: `README-dev.md`.
+- Guia de desenvolvimento: [README-dev.md](README-dev.md).
 
 ## Release
 

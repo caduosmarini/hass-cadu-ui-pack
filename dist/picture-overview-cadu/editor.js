@@ -107,6 +107,11 @@ class PictureOverviewCaduEditor extends HTMLElement {
         selector: { icon: {} },
       },
       {
+        name: "subtitle",
+        label: "Subtitulo (opcional, aceita template jinja)",
+        selector: { text: {} },
+      },
+      {
         name: "image",
         label: "Imagem (url/local)",
         selector: { text: {} },
@@ -194,6 +199,14 @@ class PictureOverviewCaduEditor extends HTMLElement {
               decimals: {
                 label: "Casas decimais (padrao 1)",
                 selector: { number: { min: 0, max: 4, step: 1 } },
+              },
+              background_color: {
+                label: "Cor de fundo (opcional)",
+                selector: { color_rgb: {} },
+              },
+              text_color: {
+                label: "Cor do texto (opcional)",
+                selector: { color_rgb: {} },
               },
               tap_action: {
                 label: "Tap action (opcional)",

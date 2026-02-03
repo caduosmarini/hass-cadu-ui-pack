@@ -6,21 +6,24 @@ class PictureOverviewCadu extends HTMLElement {
     this.attachShadow({ mode: "open" });
     this._styleElement = document.createElement("style");
     this.shadowRoot.appendChild(this._styleElement);
+    this._rendered = false;
   }
 
   setConfig(config) {
     this._config = normalizeConfig(config || {});
-    // Apenas renderiza se o hass ja estiver disponivel ou for a primeira vez
-    if (this._hass) {
-        this._render();
+    if (this._rendered) {
+      this._updateCard();
+    } else if (this._hass) {
+      this._initialRender();
     }
   }
 
   set hass(hass) {
     this._hass = hass;
-    // Renderiza apenas se tiver config e ainda nao renderizou ou se precisar atualizar dados dinamicos
-    if (this._config) {
-      this._render();
+    if (this._rendered) {
+      this._updateCard();
+    } else if (this._config) {
+      this._initialRender();
     }
   }
 
@@ -28,8 +31,9 @@ class PictureOverviewCadu extends HTMLElement {
     return 3;
   }
 
-  _render() {
-    if (!this.shadowRoot) return;
+  _initialRender() {
+    if (!this.shadowRoot || !this._hass || !this._config) return;
+    if (this._rendered) return;
 
     const aspectRatio = this._parseAspectRatio(this._config?.aspect_ratio);
     const fitMode = this._config?.fit_mode || "cover";
@@ -74,6 +78,7 @@ class PictureOverviewCadu extends HTMLElement {
         background: rgba(0, 0, 0, 0.35);
         border-radius: 0 0 6px 6px;
         pointer-events: none;
+        transition: background 0.2s ease-in-out;
       }
       .overlay-top {
         position: absolute;
@@ -86,6 +91,11 @@ class PictureOverviewCadu extends HTMLElement {
         padding: 8px 12px;
         pointer-events: none;
       }
+      .overlay-title-container {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
       .overlay-title {
         display: inline-flex;
         align-items: center;
@@ -97,6 +107,12 @@ class PictureOverviewCadu extends HTMLElement {
       }
       .overlay-title ha-icon {
         --mdc-icon-size: 18px;
+      }
+      .overlay-subtitle {
+        color: rgba(255, 255, 255, 0.85);
+        font-size: 13px;
+        font-weight: 400;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
       }
       .overlay-entities {
         display: flex;
@@ -127,9 +143,6 @@ class PictureOverviewCadu extends HTMLElement {
         background: rgba(255, 255, 255, 0.2);
         transform: scale(0.98);
       }
-      .picture-wrapper .overlay {
-        transition: background 0.2s ease-in-out;
-      }
       .picture-wrapper:hover .overlay {
         background: rgba(0, 0, 0, 0.5);
       }
@@ -149,7 +162,6 @@ class PictureOverviewCadu extends HTMLElement {
     `;
 
     const card = document.createElement("ha-card");
-
     const pictureWrapper = document.createElement("div");
     pictureWrapper.className = "picture-wrapper";
     pictureWrapper.style.setProperty("--po-aspect-ratio", String(aspectRatio));
@@ -162,36 +174,161 @@ class PictureOverviewCadu extends HTMLElement {
     spacer.className = "picture-spacer";
     pictureWrapper.appendChild(spacer);
 
+    const img = document.createElement("img");
+    img.className = "picture-image";
+    img.alt = this._config?.title || "Imagem";
+    pictureWrapper.appendChild(img);
+
+    const placeholder = document.createElement("div");
+    placeholder.className = "picture-placeholder";
+    placeholder.textContent = "Configure image ou image_entity";
+    placeholder.style.display = "none";
+    pictureWrapper.appendChild(placeholder);
+
+    // Container para overlays top
+    const overlayTop = document.createElement("div");
+    overlayTop.className = "overlay-top";
+    pictureWrapper.appendChild(overlayTop);
+
+    // Container para overlay bottom
+    const overlay = document.createElement("div");
+    overlay.className = "overlay";
+    pictureWrapper.appendChild(overlay);
+
+    card.appendChild(pictureWrapper);
+    this.shadowRoot.appendChild(card);
+
+    // Salvar referencias para updates
+    this._elements = {
+      card,
+      pictureWrapper,
+      img,
+      placeholder,
+      overlayTop,
+      overlay,
+    };
+
+    this._rendered = true;
+    this._updateCard();
+  }
+
+  _updateCard() {
+    if (!this._rendered || !this._elements) return;
+
+    const { img, placeholder, overlayTop, overlay } = this._elements;
+
+    // Update image
     const imageUrl = this._getImageUrl();
     if (imageUrl) {
-      const img = document.createElement("img");
-      img.className = "picture-image";
       img.src = imageUrl;
-      img.alt = this._config?.title || "Imagem";
-      pictureWrapper.appendChild(img);
+      img.style.display = "block";
+      placeholder.style.display = "none";
     } else {
-      const placeholder = document.createElement("div");
-      placeholder.className = "picture-placeholder";
-      placeholder.textContent = "Configure image ou image_entity";
-      pictureWrapper.appendChild(placeholder);
+      img.style.display = "none";
+      placeholder.style.display = "flex";
     }
 
+    // Update top overlay entities
+    this._updateOverlayTop(overlayTop);
+
+    // Update bottom overlay (title + entities)
+    this._updateOverlayBottom(overlay);
+  }
+
+  _updateOverlayTop(overlayTop) {
+    const overlayEntities = this._getOverlayEntityConfigs();
+    const topEntities = overlayEntities.filter(
+      (entityConfig) => (entityConfig.position || "bottom") === "top"
+    );
+
+    overlayTop.innerHTML = "";
+    if (topEntities.length === 0) return;
+
+    topEntities.forEach((entityConfig) => {
+      const overlayEntity = document.createElement("div");
+      overlayEntity.className = "overlay-entity";
+      
+      // Aplicar cores customizadas
+      const bgColor = entityConfig.background_color || "rgba(255, 255, 255, 0.25)";
+      const textColor = entityConfig.text_color || "#fff";
+      overlayEntity.style.background = bgColor;
+      overlayEntity.style.color = textColor;
+      
+      overlayEntity.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const action = entityConfig.tap_action || this._config?.tap_action;
+        this._handleAction(action, entityConfig.entity);
+      });
+
+      const icon = document.createElement("ha-icon");
+      icon.icon = this._getEntityIcon(entityConfig);
+      overlayEntity.appendChild(icon);
+
+      const state = document.createElement("div");
+      state.textContent = this._getEntityState(entityConfig.entity, entityConfig);
+      overlayEntity.appendChild(state);
+
+      overlayTop.appendChild(overlayEntity);
+    });
+  }
+
+  _updateOverlayBottom(overlay) {
     const titleText = this._config?.title || "";
+    const subtitle = this._renderTemplate(this._config?.subtitle || "");
     const titleIcon = this._config?.title_icon || "";
     const overlayEntities = this._getOverlayEntityConfigs();
     const bottomEntities = overlayEntities.filter(
       (entityConfig) => (entityConfig.position || "bottom") === "bottom"
     );
-    const topEntities = overlayEntities.filter(
-      (entityConfig) => (entityConfig.position || "bottom") === "top"
-    );
 
-    if (topEntities.length > 0) {
-      const overlayTop = document.createElement("div");
-      overlayTop.className = "overlay-top";
-      topEntities.forEach((entityConfig) => {
+    overlay.innerHTML = "";
+    overlay.style.display = (titleText || subtitle || bottomEntities.length > 0) ? "flex" : "none";
+
+    if (titleText || subtitle) {
+      const titleContainer = document.createElement("div");
+      titleContainer.className = "overlay-title-container";
+      
+      if (titleText) {
+        const overlayTitle = document.createElement("div");
+        overlayTitle.className = "overlay-title";
+        if (titleIcon) {
+          const icon = document.createElement("ha-icon");
+          icon.icon = titleIcon;
+          overlayTitle.appendChild(icon);
+        }
+        const titleSpan = document.createElement("span");
+        titleSpan.textContent = titleText;
+        overlayTitle.appendChild(titleSpan);
+        titleContainer.appendChild(overlayTitle);
+      }
+
+      if (subtitle) {
+        const subtitleDiv = document.createElement("div");
+        subtitleDiv.className = "overlay-subtitle";
+        subtitleDiv.textContent = subtitle;
+        titleContainer.appendChild(subtitleDiv);
+      }
+
+      overlay.appendChild(titleContainer);
+    } else {
+      const spacer = document.createElement("div");
+      spacer.style.flex = "1";
+      overlay.appendChild(spacer);
+    }
+
+    if (bottomEntities.length > 0) {
+      const overlayEntitiesWrap = document.createElement("div");
+      overlayEntitiesWrap.className = "overlay-entities";
+      bottomEntities.forEach((entityConfig) => {
         const overlayEntity = document.createElement("div");
         overlayEntity.className = "overlay-entity";
+        
+        // Aplicar cores customizadas
+        const bgColor = entityConfig.background_color || "rgba(255, 255, 255, 0.25)";
+        const textColor = entityConfig.text_color || "#fff";
+        overlayEntity.style.background = bgColor;
+        overlayEntity.style.color = textColor;
+        
         overlayEntity.addEventListener("click", (event) => {
           event.stopPropagation();
           const action = entityConfig.tap_action || this._config?.tap_action;
@@ -206,65 +343,38 @@ class PictureOverviewCadu extends HTMLElement {
         state.textContent = this._getEntityState(entityConfig.entity, entityConfig);
         overlayEntity.appendChild(state);
 
-        overlayTop.appendChild(overlayEntity);
+        overlayEntitiesWrap.appendChild(overlayEntity);
       });
-      pictureWrapper.appendChild(overlayTop);
+      overlay.appendChild(overlayEntitiesWrap);
     }
+  }
 
-    if (titleText || bottomEntities.length > 0) {
-      const overlay = document.createElement("div");
-      overlay.className = "overlay";
-
-      if (titleText) {
-        const overlayTitle = document.createElement("div");
-        overlayTitle.className = "overlay-title";
-        if (titleIcon) {
-          const icon = document.createElement("ha-icon");
-          icon.icon = titleIcon;
-          overlayTitle.appendChild(icon);
-        }
-        const titleSpan = document.createElement("span");
-        titleSpan.textContent = titleText;
-        overlayTitle.appendChild(titleSpan);
-        overlay.appendChild(overlayTitle);
-      } else {
-        const spacer = document.createElement("div");
-        spacer.style.flex = "1";
-        overlay.appendChild(spacer);
-      }
-
-      if (bottomEntities.length > 0) {
-        const overlayEntitiesWrap = document.createElement("div");
-        overlayEntitiesWrap.className = "overlay-entities";
-        bottomEntities.forEach((entityConfig) => {
-          const overlayEntity = document.createElement("div");
-          overlayEntity.className = "overlay-entity";
-          overlayEntity.addEventListener("click", (event) => {
-            event.stopPropagation();
-            const action = entityConfig.tap_action || this._config?.tap_action;
-            this._handleAction(action, entityConfig.entity);
-          });
-
-          const icon = document.createElement("ha-icon");
-          icon.icon = this._getEntityIcon(entityConfig);
-          overlayEntity.appendChild(icon);
-
-          const state = document.createElement("div");
-          state.textContent = this._getEntityState(entityConfig.entity, entityConfig);
-          overlayEntity.appendChild(state);
-
-          overlayEntitiesWrap.appendChild(overlayEntity);
-        });
-        overlay.appendChild(overlayEntitiesWrap);
-      }
-
-      pictureWrapper.appendChild(overlay);
+  _renderTemplate(template) {
+    if (!template || typeof template !== "string") {
+      return "";
     }
-    card.appendChild(pictureWrapper);
-
-    this.shadowRoot.innerHTML = "";
-    this.shadowRoot.appendChild(this._styleElement);
-    this.shadowRoot.appendChild(card);
+    // Verificar se é um template jinja
+    if (!template.includes("{%") && !template.includes("{{")) {
+      return template;
+    }
+    // Renderizar template via HA se possivel
+    try {
+      if (this._hass && typeof this._hass.callWS === "function") {
+        // Async rendering não funciona bem aqui, então vamos simplificar
+        // O usuario pode usar states() direto no subtitle para valores dinamicos
+        return template;
+      }
+      // Fallback: tentar avaliar templates simples
+      const stateMatch = template.match(/states\(['"]([^'"]+)['"]\)/);
+      if (stateMatch) {
+        const entityId = stateMatch[1];
+        const state = this._hass?.states?.[entityId];
+        return state ? state.state : template;
+      }
+      return template;
+    } catch (error) {
+      return template;
+    }
   }
 
   _parseAspectRatio(value) {
@@ -328,7 +438,7 @@ class PictureOverviewCadu extends HTMLElement {
     if (withState.length > 0) {
       return withState;
     }
-    return [entities[0]];
+    return entities.length > 0 ? [entities[0]] : [];
   }
 
   _getEntityName(entityConfig) {
@@ -340,7 +450,7 @@ class PictureOverviewCadu extends HTMLElement {
   }
 
   _getEntityIcon(entityConfig) {
-    if (entityConfig?.icon) {
+    if (entityConfig?.icon && entityConfig.icon !== "") {
       return entityConfig.icon;
     }
     const state = this._hass?.states?.[entityConfig.entity];
