@@ -364,15 +364,15 @@ class PictureOverviewCadu extends HTMLElement {
     if (!template.includes("{%") && !template.includes("{{")) {
       return template;
     }
-    // Renderizar template via HA se possivel
+    // Renderizar template via HA
     try {
       if (!this._hass || typeof this._hass.callWS !== "function") {
-        return this._tryRenderTemplateFallback(template);
+        return "";
       }
       const now = Date.now();
       const cached = this._templateCache.get(template);
       
-      // Se tem cache válido, retorna
+      // Se tem cache válido (menos de 1 segundo), retorna
       if (cached && now - cached.ts < 1000) {
         return cached.value;
       }
@@ -403,27 +403,8 @@ class PictureOverviewCadu extends HTMLElement {
         this._templateRequests.set(template, request);
       }
       
-      // Retorna cache existente (mesmo que expirado) ou fallback
-      return cached ? cached.value : this._tryRenderTemplateFallback(template);
-    } catch (error) {
-      return this._tryRenderTemplateFallback(template);
-    }
-  }
-
-  _tryRenderTemplateFallback(template) {
-    try {
-      // Tenta extrair states('entity_id') simples
-      const stateMatch = template.match(/states\(['"]([^'"]+)['"]\)/);
-      if (stateMatch) {
-        const entityId = stateMatch[1];
-        const state = this._hass?.states?.[entityId];
-        if (state) {
-          // Substitui states('...') pelo valor do estado
-          return template.replace(/\{\{[\s\S]*?\}\}/, state.state);
-        }
-      }
-      // Se não conseguiu fazer fallback, retorna vazio para não mostrar o template cru
-      return "";
+      // Retorna cache existente (mesmo que expirado) ou vazio enquanto aguarda
+      return cached ? cached.value : "";
     } catch (error) {
       return "";
     }
