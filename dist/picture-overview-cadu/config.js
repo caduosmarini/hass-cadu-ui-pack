@@ -4,12 +4,49 @@ function normalizeColor(colorValue) {
   if (!colorValue) {
     return "";
   }
+  const toByte = (v) => Math.max(0, Math.min(255, Number(v) || 0));
+  const toHex = (v) => toByte(v).toString(16).padStart(2, "0");
+  const toAlpha = (value) => {
+    if (value === undefined || value === null || value === "") {
+      return null;
+    }
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+      return null;
+    }
+    if (numeric > 1) {
+      return Math.max(0, Math.min(1, numeric / 100));
+    }
+    return Math.max(0, Math.min(1, numeric));
+  };
+
   if (Array.isArray(colorValue) && colorValue.length >= 3) {
     const [r, g, b] = colorValue;
-    const toHex = (v) =>
-      Math.max(0, Math.min(255, Number(v) || 0)).toString(16).padStart(2, "0");
     return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
   }
+
+  if (typeof colorValue === "object") {
+    const alpha = toAlpha(colorValue.alpha ?? colorValue.opacity);
+    let rgb = colorValue.color;
+    if (!rgb && ["r", "g", "b"].every((key) => key in colorValue)) {
+      rgb = { r: colorValue.r, g: colorValue.g, b: colorValue.b };
+    }
+    if (Array.isArray(rgb) && rgb.length >= 3) {
+      const [r, g, b] = rgb;
+      if (alpha === null) {
+        return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+      }
+      return `rgba(${toByte(r)}, ${toByte(g)}, ${toByte(b)}, ${alpha})`;
+    }
+    if (rgb && typeof rgb === "object") {
+      const { r, g, b } = rgb;
+      if (alpha === null) {
+        return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+      }
+      return `rgba(${toByte(r)}, ${toByte(g)}, ${toByte(b)}, ${alpha})`;
+    }
+  }
+
   if (typeof colorValue === "string" && colorValue.trim() !== "") {
     return colorValue.trim();
   }

@@ -148,7 +148,8 @@ class PictureOverviewCadu extends HTMLElement {
       .picture-wrapper:hover .overlay {
         background: rgba(0, 0, 0, 0.5);
       }
-      .overlay-entity ha-icon {
+      .overlay-entity ha-icon,
+      .overlay-entity ha-state-icon {
         --mdc-icon-size: 18px;
       }
       .picture-placeholder {
@@ -262,8 +263,7 @@ class PictureOverviewCadu extends HTMLElement {
         this._handleAction(action, entityConfig.entity);
       });
 
-      const icon = document.createElement("ha-icon");
-      icon.icon = this._getEntityIcon(entityConfig);
+      const icon = this._createEntityIcon(entityConfig);
       overlayEntity.appendChild(icon);
 
       const state = document.createElement("div");
@@ -343,8 +343,7 @@ class PictureOverviewCadu extends HTMLElement {
           this._handleAction(action, entityConfig.entity);
         });
 
-        const icon = document.createElement("ha-icon");
-        icon.icon = this._getEntityIcon(entityConfig);
+        const icon = this._createEntityIcon(entityConfig);
         overlayEntity.appendChild(icon);
 
         const state = document.createElement("div");
@@ -373,10 +372,9 @@ class PictureOverviewCadu extends HTMLElement {
       }
       const now = Date.now();
       const cached = this._templateCache.get(template);
-      if (cached && now - cached.ts < 1000) {
-        return cached.value;
-      }
-      if (!this._templateRequests.has(template)) {
+      const cachedValue = cached ? cached.value : "";
+      const shouldRefresh = !cached || now - cached.ts > 1000;
+      if (shouldRefresh && !this._templateRequests.has(template)) {
         const request = this._hass
           .callWS({ type: "render_template", template })
           .then((response) => {
@@ -398,7 +396,7 @@ class PictureOverviewCadu extends HTMLElement {
           });
         this._templateRequests.set(template, request);
       }
-      return cached ? cached.value : fallback;
+      return cachedValue || fallback;
     } catch (error) {
       return fallback;
     }
@@ -490,12 +488,23 @@ class PictureOverviewCadu extends HTMLElement {
     return state?.attributes?.friendly_name || entityConfig.entity;
   }
 
-  _getEntityIcon(entityConfig) {
-    if (entityConfig?.icon && entityConfig.icon !== "") {
-      return entityConfig.icon;
-    }
+  _createEntityIcon(entityConfig) {
+    const iconOverride = entityConfig?.icon;
     const state = this._hass?.states?.[entityConfig.entity];
-    return state?.attributes?.icon || "mdi:checkbox-blank-circle-outline";
+    if (state) {
+      const icon = document.createElement("ha-state-icon");
+      icon.stateObj = state;
+      if (iconOverride && iconOverride !== "") {
+        icon.icon = iconOverride;
+      }
+      return icon;
+    }
+    const icon = document.createElement("ha-icon");
+    icon.icon =
+      iconOverride && iconOverride !== ""
+        ? iconOverride
+        : "mdi:checkbox-blank-circle-outline";
+    return icon;
   }
 
   _getEntityState(entityId, entityConfig = null) {
