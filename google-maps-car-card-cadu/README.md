@@ -11,11 +11,11 @@ Repositorio: https://github.com/caduosmarini/hass-cadu-ui-pack
 3. Adicione o recurso no Lovelace em **Configuracao > Painel > Recursos**:
 
 ```yaml
-url: /hacsfiles/hass-cadu-ui-pack/dist/hass-cadu-ui-pack.js
+url: /hacsfiles/hass-cadu-ui-pack/hass-cadu-ui-pack.js
 type: module
 ```
 
-Se instalar manualmente em `/www`, use `url: /local/dist/hass-cadu-ui-pack.js`.
+Se instalar manualmente em `/www`, use `url: /local/hass-cadu-ui-pack.js`.
 
 ## Configuracao (YAML)
 
@@ -104,7 +104,7 @@ API key, entidades, rastro, modo noturno, transito, seguir, rotacao, limites de 
 
 ## Desenvolvimento
 
-O entrypoint publicado fica em `dist/hass-cadu-ui-pack.js`.
+O entrypoint publicado fica em `hass-cadu-ui-pack.js`.
 
 ## Solucao de problemas
 

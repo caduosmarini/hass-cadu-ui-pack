@@ -22,16 +22,16 @@ Repositorio: https://github.com/caduosmarini/hass-cadu-ui-pack
 
 ```yaml
 # Hass Cadu UI Pack (carrega todos os cards)
-url: /hacsfiles/hass-cadu-ui-pack/dist/hass-cadu-ui-pack.js
+url: /hacsfiles/hass-cadu-ui-pack/hass-cadu-ui-pack.js
 type: module
 ```
 
-Se instalar manualmente em `/www`, use `url: /local/dist/hass-cadu-ui-pack.js`.
+Se instalar manualmente em `/www`, use `url: /local/hass-cadu-ui-pack.js`.
 
 ## Desenvolvimento
 
 - Cada card tem sua propria pasta e README.
-- O entrypoint publicado fica em `dist/hass-cadu-ui-pack.js`.
+- O entrypoint publicado fica em `hass-cadu-ui-pack.js`.
 - Para testar localmente, abra `test-card.html` e ajuste a API Key.
 
 ## Release
