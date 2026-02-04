@@ -12,8 +12,43 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     this.mapContainer = document.createElement("div");
     this.mapContainer.id = "map";
     this.shadowRoot.appendChild(this.mapContainer);
+    
+    // Criar elemento do contador circular
     this.followCountdownElement = document.createElement("div");
     this.followCountdownElement.className = "follow-countdown";
+    
+    // SVG para o círculo progressivo
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("class", "follow-countdown-circle");
+    svg.setAttribute("viewBox", "0 0 44 44");
+    
+    // Círculo de fundo
+    const bgCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    bgCircle.setAttribute("class", "follow-countdown-bg");
+    bgCircle.setAttribute("cx", "22");
+    bgCircle.setAttribute("cy", "22");
+    bgCircle.setAttribute("r", "19");
+    svg.appendChild(bgCircle);
+    
+    // Círculo de progresso
+    this.followCountdownProgressCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    this.followCountdownProgressCircle.setAttribute("class", "follow-countdown-progress");
+    this.followCountdownProgressCircle.setAttribute("cx", "22");
+    this.followCountdownProgressCircle.setAttribute("cy", "22");
+    this.followCountdownProgressCircle.setAttribute("r", "19");
+    const circumference = 2 * Math.PI * 19;
+    this.followCountdownProgressCircle.setAttribute("stroke-dasharray", circumference);
+    this.followCountdownProgressCircle.setAttribute("stroke-dashoffset", circumference);
+    svg.appendChild(this.followCountdownProgressCircle);
+    
+    this.followCountdownElement.appendChild(svg);
+    
+    // Ícone de alvo no centro
+    const icon = document.createElement("div");
+    icon.className = "follow-countdown-icon";
+    icon.innerHTML = "🎯";
+    this.followCountdownElement.appendChild(icon);
+    
     this.shadowRoot.appendChild(this.followCountdownElement);
     this.markers = {}; // Armazena marcadores por entidade
     this.infoBoxes = {}; // Armazena InfoBoxes por entidade
@@ -207,32 +242,48 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       }
       .follow-countdown {
         position: absolute;
-        bottom: 10px;
-        left: 10px;
-        background: rgba(0, 0, 0, 0.8);
-        color: #fff;
-        padding: 8px 14px;
-        border-radius: 6px;
-        font-size: 12px;
-        font-weight: 500;
+        bottom: 12px;
+        left: 12px;
+        width: 44px;
+        height: 44px;
         z-index: 100;
         opacity: 0;
-        transform: translateY(10px);
+        transform: scale(0.8);
         transition: opacity 0.3s ease, transform 0.3s ease;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-        border: 1px solid rgba(255, 255, 255, 0.3);
         pointer-events: none;
-        display: flex;
-        align-items: center;
-        gap: 6px;
+        background: rgba(0, 0, 0, 0.7);
+        border-radius: 50%;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+        padding: 2px;
       }
       .follow-countdown.visible {
         opacity: 1;
-        transform: translateY(0);
+        transform: scale(1);
       }
-      .follow-countdown::before {
-        content: "⏱️";
-        font-size: 14px;
+      .follow-countdown-circle {
+        width: 100%;
+        height: 100%;
+        transform: rotate(-90deg);
+      }
+      .follow-countdown-bg {
+        fill: none;
+        stroke: rgba(255, 255, 255, 0.2);
+        stroke-width: 2.5;
+      }
+      .follow-countdown-progress {
+        fill: none;
+        stroke: #4CAF50;
+        stroke-width: 2.5;
+        stroke-linecap: round;
+        transition: stroke-dashoffset 0.1s linear;
+      }
+      .follow-countdown-icon {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 18px;
+        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8));
       }
       @media (max-width: 768px) {
         .map-controls {
@@ -831,8 +882,9 @@ class GoogleMapsCarCardCadu extends HTMLElement {
   }
 
   _updateFollowCountdown() {
-    if (!this.followCountdownElement || !this._followResumeTime) return;
+    if (!this.followCountdownElement || !this._followResumeTime || !this.followCountdownProgressCircle) return;
     
+    const totalDuration = 10000; // 10 segundos
     const remainingMs = this._followResumeTime - Date.now();
     
     if (remainingMs <= 0) {
@@ -840,15 +892,26 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       return;
     }
     
-    const remainingSeconds = Math.ceil(remainingMs / 1000);
-    // O emoji já está no CSS ::before, então só adicionar o texto
-    this.followCountdownElement.innerHTML = `Retomando em ${remainingSeconds}s`;
+    // Calcular progresso (0 a 1, onde 1 é completo)
+    const progress = 1 - (remainingMs / totalDuration);
+    
+    // Calcular stroke-dashoffset para o círculo
+    const circumference = 2 * Math.PI * 19;
+    const offset = circumference * (1 - progress);
+    
+    this.followCountdownProgressCircle.setAttribute("stroke-dashoffset", offset);
     this.followCountdownElement.classList.add("visible");
   }
 
   _hideFollowCountdown() {
     if (!this.followCountdownElement) return;
     this.followCountdownElement.classList.remove("visible");
+    
+    // Resetar o círculo de progresso
+    if (this.followCountdownProgressCircle) {
+      const circumference = 2 * Math.PI * 19;
+      this.followCountdownProgressCircle.setAttribute("stroke-dashoffset", circumference);
+    }
   }
 
   _applyNightMode() {
