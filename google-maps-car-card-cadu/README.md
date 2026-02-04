@@ -110,7 +110,8 @@ O card possui uma barra de controles moderna e compacta:
 - **Modo Noturno**: Aplica tema escuro ao mapa.
 - **Seguir**: Centraliza automaticamente o mapa nas entidades. Quando ativo:
   - Se você mover ou dar zoom no mapa manualmente, o seguir é pausado temporariamente.
-  - Um indicador circular animado (🎯) aparece no canto inferior esquerdo, preenchendo-se progressivamente.
+  - Um indicador circular animado com ícone de alvo aparece no canto inferior esquerdo, preenchendo-se progressivamente.
+  - Clique no indicador para retomar o seguir imediatamente, sem esperar.
   - Após 10 segundos sem interação, o seguir é reativado automaticamente.
   - Desmarcar e remarcar o checkbox cancela a pausa e o indicador.
 - **Rotação**: Ativa/desativa a rotação automática dos ícones dos veículos.

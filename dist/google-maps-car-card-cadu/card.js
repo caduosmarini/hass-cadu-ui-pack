@@ -16,6 +16,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     // Criar elemento do contador circular
     this.followCountdownElement = document.createElement("div");
     this.followCountdownElement.className = "follow-countdown";
+    this.followCountdownElement.title = "Clique para retomar o seguir";
     
     // SVG para o círculo progressivo
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -43,11 +44,28 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     
     this.followCountdownElement.appendChild(svg);
     
-    // Ícone de alvo no centro
-    const icon = document.createElement("div");
-    icon.className = "follow-countdown-icon";
-    icon.innerHTML = "🎯";
-    this.followCountdownElement.appendChild(icon);
+    // Ícone de alvo no centro (SVG minimalista)
+    const iconSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    iconSvg.setAttribute("class", "follow-countdown-icon");
+    iconSvg.setAttribute("viewBox", "0 0 24 24");
+    iconSvg.setAttribute("width", "18");
+    iconSvg.setAttribute("height", "18");
+    
+    // Crosshair/alvo minimalista
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", "M12 2v4m0 12v4M2 12h4m12 0h4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z");
+    path.setAttribute("stroke", "white");
+    path.setAttribute("stroke-width", "2");
+    path.setAttribute("stroke-linecap", "round");
+    path.setAttribute("fill", "none");
+    
+    iconSvg.appendChild(path);
+    this.followCountdownElement.appendChild(iconSvg);
+    
+    // Adicionar listener para clicar e retomar o seguir imediatamente
+    this.followCountdownElement.addEventListener("click", () => {
+      this._resumeFollowImmediately();
+    });
     
     this.shadowRoot.appendChild(this.followCountdownElement);
     this.markers = {}; // Armazena marcadores por entidade
@@ -255,10 +273,38 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         border-radius: 50%;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
         padding: 2px;
+        cursor: pointer;
       }
       .follow-countdown.visible {
         opacity: 1;
         transform: scale(1);
+        pointer-events: auto;
+      }
+      .follow-countdown:hover {
+        background: rgba(0, 0, 0, 0.85);
+        transform: scale(1.1);
+      }
+      .follow-countdown:active {
+        transform: scale(0.95);
+      }
+      .follow-countdown::after {
+        content: "Clique para retomar";
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%) translateY(-8px);
+        background: rgba(0, 0, 0, 0.9);
+        color: #fff;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s ease;
+      }
+      .follow-countdown:hover::after {
+        opacity: 1;
       }
       .follow-countdown-circle {
         width: 100%;
@@ -282,8 +328,8 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        font-size: 18px;
         filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8));
+        pointer-events: none;
       }
       @media (max-width: 768px) {
         .map-controls {
@@ -818,67 +864,91 @@ class GoogleMapsCarCardCadu extends HTMLElement {
   _setupMapInteractionListeners() {
     if (!this._map) return;
     
-    // Detectar quando o usuário começa a interagir com o mapa
-    const handleUserInteraction = () => {
-      // Ignorar se estamos fazendo um movimento programático
-      if (this._isPerformingProgrammaticMove) {
-        return;
+    // Variável para rastrear se o usuário está interagindo
+    let userInteracting = false;
+    
+    // Detectar quando o usuário começa a arrastar o mapa
+    google.maps.event.addListener(this._map, "dragstart", () => {
+      userInteracting = true;
+      this._handleUserInteraction();
+    });
+    
+    google.maps.event.addListener(this._map, "dragend", () => {
+      userInteracting = false;
+    });
+    
+    // Detectar zoom do usuário (roda do mouse ou botões de zoom)
+    google.maps.event.addListener(this._map, "zoom_changed", () => {
+      // Apenas processar se não for um movimento programático E não estiver arrastando
+      if (!this._isPerformingProgrammaticMove && !userInteracting) {
+        // Pequeno delay para verificar se foi zoom do usuário
+        setTimeout(() => {
+          if (!this._isPerformingProgrammaticMove) {
+            this._handleUserInteraction();
+          }
+        }, 50);
       }
-      
-      // Verificar se o seguir estava ativo antes da interação
-      const wasFollowActive = this._config.follow_entity && this._config.follow_entity !== ""
-        ? (this._hass?.states?.[this._config.follow_entity]?.state === "on" && !this._uiState.followOverride)
-        : (this._config.mostrar_menu === false && !this._config.follow_entity
-          ? this._config.seguir_on === true
-          : this._uiState.followEnabled);
-      
-      if (!wasFollowActive) {
-        return; // Não fazer nada se o seguir não estava ativo
-      }
-      
-      // Pausar o seguir
-      this._followPausedByUser = true;
-      
-      // Limpar timer e interval anteriores se existirem
+    });
+  }
+
+  _handleUserInteraction() {
+    // Ignorar se estamos fazendo um movimento programático
+    if (this._isPerformingProgrammaticMove) {
+      return;
+    }
+    
+    // Verificar se o seguir estava ativo antes da interação
+    const wasFollowActive = this._config.follow_entity && this._config.follow_entity !== ""
+      ? (this._hass?.states?.[this._config.follow_entity]?.state === "on" && !this._uiState.followOverride)
+      : (this._config.mostrar_menu === false && !this._config.follow_entity
+        ? this._config.seguir_on === true
+        : this._uiState.followEnabled);
+    
+    if (!wasFollowActive) {
+      return; // Não fazer nada se o seguir não estava ativo
+    }
+    
+    // Se já está pausado, apenas reiniciar o timer
+    if (this._followPausedByUser) {
+      // Limpar timer e interval anteriores
       if (this._followResumeTimer) {
         clearTimeout(this._followResumeTimer);
       }
       if (this._followCountdownInterval) {
         clearInterval(this._followCountdownInterval);
       }
-      
-      // Definir tempo de retomada (10 segundos)
-      this._followResumeTime = Date.now() + 10000;
-      
-      // Mostrar e atualizar o contador
-      this._updateFollowCountdown();
-      this._followCountdownInterval = setInterval(() => {
-        this._updateFollowCountdown();
-      }, 100); // Atualizar a cada 100ms para suavidade
-      
-      // Reiniciar timer de 10 segundos para retomar o seguir
-      this._followResumeTimer = setTimeout(() => {
-        this._followPausedByUser = false;
-        this._followResumeTimer = null;
-        this._followResumeTime = null;
-        
-        // Parar o contador
-        if (this._followCountdownInterval) {
-          clearInterval(this._followCountdownInterval);
-          this._followCountdownInterval = null;
-        }
-        this._hideFollowCountdown();
-        
-        // Retomar o seguir
-        if (this._shouldFollow()) {
-          this._fitMapBounds();
-        }
-      }, 10000);
-    };
+    }
     
-    // Adicionar listeners para diferentes tipos de interação
-    google.maps.event.addListener(this._map, "dragstart", handleUserInteraction);
-    google.maps.event.addListener(this._map, "zoom_changed", handleUserInteraction);
+    // Pausar o seguir
+    this._followPausedByUser = true;
+    
+    // Definir tempo de retomada (10 segundos)
+    this._followResumeTime = Date.now() + 10000;
+    
+    // Mostrar e atualizar o contador
+    this._updateFollowCountdown();
+    this._followCountdownInterval = setInterval(() => {
+      this._updateFollowCountdown();
+    }, 100); // Atualizar a cada 100ms para suavidade
+    
+    // Reiniciar timer de 10 segundos para retomar o seguir
+    this._followResumeTimer = setTimeout(() => {
+      this._followPausedByUser = false;
+      this._followResumeTimer = null;
+      this._followResumeTime = null;
+      
+      // Parar o contador
+      if (this._followCountdownInterval) {
+        clearInterval(this._followCountdownInterval);
+        this._followCountdownInterval = null;
+      }
+      this._hideFollowCountdown();
+      
+      // Retomar o seguir
+      if (this._shouldFollow()) {
+        this._fitMapBounds();
+      }
+    }, 10000);
   }
 
   _updateFollowCountdown() {
@@ -911,6 +981,30 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     if (this.followCountdownProgressCircle) {
       const circumference = 2 * Math.PI * 19;
       this.followCountdownProgressCircle.setAttribute("stroke-dashoffset", circumference);
+    }
+  }
+
+  _resumeFollowImmediately() {
+    // Limpar timers e intervals
+    if (this._followResumeTimer) {
+      clearTimeout(this._followResumeTimer);
+      this._followResumeTimer = null;
+    }
+    if (this._followCountdownInterval) {
+      clearInterval(this._followCountdownInterval);
+      this._followCountdownInterval = null;
+    }
+    
+    // Resetar estado
+    this._followPausedByUser = false;
+    this._followResumeTime = null;
+    
+    // Esconder o contador
+    this._hideFollowCountdown();
+    
+    // Retomar o seguir imediatamente
+    if (this._shouldFollow()) {
+      this._fitMapBounds();
     }
   }
 
@@ -1593,10 +1687,10 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         this._map.setZoom(maxZoom);
       }
       
-      // Desmarcar movimento programático após conclusão
+      // Desmarcar movimento programático após conclusão com delay maior
       setTimeout(() => {
         this._isPerformingProgrammaticMove = false;
-      }, 100);
+      }, 300);
     });
   }
 
@@ -1629,10 +1723,10 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         this._map.setZoom(maxZoom);
       }
       
-      // Desmarcar movimento programático após conclusão
+      // Desmarcar movimento programático após conclusão com delay maior
       setTimeout(() => {
         this._isPerformingProgrammaticMove = false;
-      }, 100);
+      }, 300);
     });
   }
 }
