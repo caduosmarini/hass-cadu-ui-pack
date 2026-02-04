@@ -187,6 +187,8 @@ class PictureOverviewCadu extends HTMLElement {
     const img = document.createElement("img");
     img.className = "picture-image";
     img.alt = this._config?.title || "Imagem";
+    img.loading = "eager";
+    img.decoding = "async";
     pictureWrapper.appendChild(img);
 
     const placeholder = document.createElement("div");
@@ -227,15 +229,42 @@ class PictureOverviewCadu extends HTMLElement {
 
     const { img, placeholder, overlayTop, overlay } = this._elements;
 
-    // Update image
+    // Só mexe na imagem quando a URL mudar (evita recarregar quando só o template/subtitle atualiza)
     const imageUrl = this._getImageUrl();
-    if (imageUrl) {
-      img.src = imageUrl;
-      img.style.display = "block";
-      placeholder.style.display = "none";
-    } else {
-      img.style.display = "none";
-      placeholder.style.display = "flex";
+    const imageUrlChanged = (imageUrl || "") !== (img.src || "");
+    if (imageUrlChanged) {
+      if (imageUrl) {
+        const fromEntity = !!this._config?.image_entity;
+        img.onload = null;
+        img.onerror = null;
+        if (fromEntity) {
+          placeholder.textContent = "Carregando imagem…";
+          placeholder.style.display = "flex";
+          img.style.display = "none";
+          img.onload = () => {
+            placeholder.style.display = "none";
+            img.style.display = "block";
+          };
+          img.onerror = () => {
+            placeholder.textContent = "Erro ao carregar imagem";
+            placeholder.style.display = "flex";
+            img.style.display = "none";
+          };
+        } else {
+          placeholder.style.display = "none";
+          img.style.display = "block";
+        }
+        img.src = imageUrl;
+        if (fromEntity && img.complete && img.naturalWidth) {
+          placeholder.style.display = "none";
+          img.style.display = "block";
+        }
+      } else {
+        img.src = "";
+        img.style.display = "none";
+        placeholder.textContent = "Configure image ou image_entity";
+        placeholder.style.display = "flex";
+      }
     }
 
     // Update top overlay entities
@@ -473,32 +502,41 @@ class PictureOverviewCadu extends HTMLElement {
   }
 
   _getImageUrl() {
+    let url = "";
     if (this._config?.image) {
       if (typeof this._config.image === "string") {
-        return this._config.image;
+        url = this._config.image;
+      } else if (typeof this._config.image === "object") {
+        url = this._config.image.media_content_id || "";
       }
-      if (typeof this._config.image === "object") {
-        return this._config.image.media_content_id || "";
+    } else {
+      const imageEntity = this._config?.image_entity;
+      if (imageEntity && this._hass) {
+        const state = this._hass.states?.[imageEntity];
+        if (state) {
+          if (this._config?.camera_view === "live" && imageEntity.startsWith("camera.")) {
+            const streamPath = `/api/camera_proxy_stream/${imageEntity}`;
+            url = this._resolveUrl(streamPath) || streamPath;
+          } else {
+            url =
+              state.attributes?.entity_picture ||
+              state.attributes?.image ||
+              (typeof state.state === "string" ? state.state : "");
+          }
+        }
       }
     }
-    const imageEntity = this._config?.image_entity;
-    if (!imageEntity || !this._hass) {
-      return "";
+    return this._resolveUrl(url) || url;
+  }
+
+  /** Converte path relativo em URL absoluta para carregar mais rápido e evitar erros de origem. */
+  _resolveUrl(path) {
+    if (!path || typeof path !== "string") return "";
+    const trimmed = path.trim();
+    if (trimmed.startsWith("/") && this._hass && typeof this._hass.hassUrl === "function") {
+      return this._hass.hassUrl(trimmed);
     }
-    const state = this._hass.states?.[imageEntity];
-    if (!state) {
-      return "";
-    }
-    if (this._config?.camera_view === "live" && imageEntity.startsWith("camera.")) {
-      const hassUrl = typeof this._hass.hassUrl === "function" ? this._hass.hassUrl : null;
-      const streamPath = `/api/camera_proxy_stream/${imageEntity}`;
-      return hassUrl ? hassUrl(streamPath) : streamPath;
-    }
-    return (
-      state.attributes?.entity_picture ||
-      state.attributes?.image ||
-      (typeof state.state === "string" ? state.state : "")
-    );
+    return trimmed;
   }
 
   _getPrimaryEntityId() {

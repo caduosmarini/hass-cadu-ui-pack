@@ -865,21 +865,28 @@ class GoogleMapsCarCardCadu extends HTMLElement {
   _setupMapInteractionListeners() {
     if (!this._map) return;
     
+    let interactionTimeout = null;
+    
+    const handleInteraction = () => {
+      // Evitar múltiplas chamadas consecutivas (debounce de 100ms)
+      if (interactionTimeout) return;
+      
+      interactionTimeout = setTimeout(() => {
+        interactionTimeout = null;
+      }, 100);
+      
+      this._handleUserInteraction();
+    };
+    
     // Detectar QUALQUER interação do usuário com o mapa
     // Mousedown = clique do mouse ou arrastar
-    this.mapContainer.addEventListener("mousedown", () => {
-      this._handleUserInteraction();
-    });
+    this.mapContainer.addEventListener("mousedown", handleInteraction);
     
     // Touchstart = toque em dispositivos móveis
-    this.mapContainer.addEventListener("touchstart", () => {
-      this._handleUserInteraction();
-    }, { passive: true });
+    this.mapContainer.addEventListener("touchstart", handleInteraction, { passive: true });
     
     // Wheel = scroll do mouse para zoom
-    this.mapContainer.addEventListener("wheel", () => {
-      this._handleUserInteraction();
-    }, { passive: true });
+    this.mapContainer.addEventListener("wheel", handleInteraction, { passive: true });
   }
 
   _handleUserInteraction() {
@@ -899,16 +906,16 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       return; // Não fazer nada se o seguir não estava ativo
     }
     
-    // Se já está pausado, apenas reiniciar o timer
-    if (this._followPausedByUser) {
-      // Limpar timer e interval anteriores
-      if (this._followResumeTimer) {
-        clearTimeout(this._followResumeTimer);
-      }
-      if (this._followCountdownInterval) {
-        clearInterval(this._followCountdownInterval);
-      }
+    // Limpar timer e interval anteriores
+    if (this._followResumeTimer) {
+      clearTimeout(this._followResumeTimer);
     }
+    if (this._followCountdownInterval) {
+      clearInterval(this._followCountdownInterval);
+    }
+    
+    // Se já estava pausado, apenas reiniciar o timer sem fazer mais nada
+    const wasAlreadyPaused = this._followPausedByUser;
     
     // Pausar o seguir
     this._followPausedByUser = true;
@@ -916,11 +923,15 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     // Definir tempo de retomada (10 segundos)
     this._followResumeTime = Date.now() + 10000;
     
-    // Mostrar e atualizar o contador
-    this._updateFollowCountdown();
+    // Só atualizar o visual se ainda não estava pausado
+    if (!wasAlreadyPaused) {
+      this._updateFollowCountdown();
+    }
+    
+    // Atualizar o contador
     this._followCountdownInterval = setInterval(() => {
       this._updateFollowCountdown();
-    }, 100); // Atualizar a cada 100ms para suavidade
+    }, 100);
     
     // Reiniciar timer de 10 segundos para retomar o seguir
     this._followResumeTimer = setTimeout(() => {
