@@ -155,6 +155,7 @@ function normalizeConfig(config) {
     return {
       title: "",
       title_icon: "",
+      title_secondary: "",
       subtitle: "",
       image: "",
       image_media_content_id: "",
@@ -193,6 +194,7 @@ function normalizeConfig(config) {
     const normalized = {
       title: config.title || "",
       title_icon: normalizeTitleIcon(config.title_icon),
+      title_secondary: config.title_secondary || "",
       subtitle: config.subtitle || "",
       image: normalizedImage,
       image_media_content_id: imageMediaContentId,
@@ -237,6 +239,7 @@ function normalizeConfig(config) {
     return {
       title: config.title || "",
       title_icon: normalizeTitleIcon(config.title_icon),
+      title_secondary: config.title_secondary || "",
       subtitle: config.subtitle || "",
       image: normalizedImage,
       image_media_content_id: imageMediaContentId,

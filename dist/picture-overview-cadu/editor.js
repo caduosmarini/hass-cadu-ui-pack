@@ -107,6 +107,11 @@ class PictureOverviewCaduEditor extends HTMLElement {
         selector: { icon: {} },
       },
       {
+        name: "title_secondary",
+        label: "Titulo secundario (ao lado, menor)",
+        selector: { text: {} },
+      },
+      {
         name: "subtitle",
         label: "Subtitulo (opcional, aceita template jinja)",
         selector: { template: {} },

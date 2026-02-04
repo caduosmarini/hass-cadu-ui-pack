@@ -23,6 +23,7 @@ Se instalar manualmente em `/www`, use `url: /local/hass-cadu-ui-pack.js`.
 type: "custom:picture-overview-cadu"
 title: Office • Dining • Kitchen • Laundry
 title_icon: mdi:home
+title_secondary: "(Ground Floor)"
 subtitle: "{{ states('sensor.nspaneloffice_temperature') }}°C"
 aspect_ratio: "1.5"
 fit_mode: cover
@@ -37,8 +38,8 @@ entities:
     show_state: true
     position: bottom
     decimals: 1
-    background_color: [255, 255, 255]  # Ou "#ffffff"
-    text_color: [0, 0, 0]  # Ou "#000000"
+    background_color: [255, 255, 255]  # Ou "#ffffff" ou [255, 255, 255, 0.5] com transparência
+    text_color: [0, 0, 0]  # Ou "#000000" ou rgba(0, 0, 0, 0.8)
 ```
 
 Outro exemplo usando image_entity:
@@ -64,6 +65,7 @@ O editor visual do card apresenta as mesmas opcoes do YAML: imagem (url/local ou
 
 - `title`: Titulo do card.
 - `title_icon`: Icone ao lado do titulo (opcional).
+- `title_secondary`: Titulo secundario ao lado do titulo principal, com fonte menor (opcional).
 - `subtitle`: Subtitulo abaixo do titulo (opcional, aceita template jinja, renderizado via `render_template`).
 - `image`: URL/arquivo local da imagem (opcional). Tambem aceita objeto com `media_content_id`.
 - `image_media_content_id`: Alternativa de UI para preencher `image.media_content_id`.
@@ -75,8 +77,8 @@ O editor visual do card apresenta as mesmas opcoes do YAML: imagem (url/local ou
 - `entities`: Lista de entidades para exibir (overlay usa todas com `show_state: true`).
   - `position`: `bottom` (barra inferior) ou `top` (canto superior direito).
   - `decimals`: Numero de casas decimais quando o estado for numerico (padrao: 1).
-  - `background_color`: Cor de fundo do chip (RGB array ou string hex, opcional).
-  - `text_color`: Cor do texto do chip (RGB array ou string hex, opcional).
+  - `background_color`: Cor de fundo do chip (RGB array ou string hex, opcional). Suporta transparência: `[255, 255, 255, 0.5]` ou `rgba(255, 255, 255, 0.5)`.
+  - `text_color`: Cor do texto do chip (RGB array ou string hex, opcional). Suporta transparência.
   - `icon`: Icone customizado (opcional). Se nao definido, usa o icone da entidade.
   - `entity`: Entidade.
   - `name`: Nome customizado (opcional).

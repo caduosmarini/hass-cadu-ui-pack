@@ -110,6 +110,13 @@ class PictureOverviewCadu extends HTMLElement {
       .overlay-title ha-icon {
         --mdc-icon-size: 18px;
       }
+      .overlay-title-secondary {
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 13px;
+        font-weight: 400;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+        margin-left: 4px;
+      }
       .overlay-subtitle {
         color: rgba(255, 255, 255, 0.85);
         font-size: 13px;
@@ -276,6 +283,7 @@ class PictureOverviewCadu extends HTMLElement {
 
   _updateOverlayBottom(overlay) {
     const titleText = this._config?.title || "";
+    const titleSecondary = this._config?.title_secondary || "";
     const subtitle = this._renderTemplate(this._config?.subtitle || "");
     const titleIcon = this._config?.title_icon || "";
     const overlayEntities = this._getOverlayEntityConfigs();
@@ -301,6 +309,15 @@ class PictureOverviewCadu extends HTMLElement {
         const titleSpan = document.createElement("span");
         titleSpan.textContent = titleText;
         overlayTitle.appendChild(titleSpan);
+        
+        // Adiciona título secundário ao lado do principal
+        if (titleSecondary) {
+          const titleSecondarySpan = document.createElement("span");
+          titleSecondarySpan.className = "overlay-title-secondary";
+          titleSecondarySpan.textContent = titleSecondary;
+          overlayTitle.appendChild(titleSecondarySpan);
+        }
+        
         titleContainer.appendChild(overlayTitle);
       }
 
