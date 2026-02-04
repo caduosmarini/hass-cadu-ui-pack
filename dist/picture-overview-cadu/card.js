@@ -366,7 +366,7 @@ class PictureOverviewCadu extends HTMLElement {
     }
     // Renderizar template via HA
     try {
-      if (!this._hass || typeof this._hass.callWS !== "function") {
+      if (!this._hass || !this._hass.connection) {
         return "";
       }
       const now = Date.now();
@@ -379,33 +379,30 @@ class PictureOverviewCadu extends HTMLElement {
       
       // Se não tem request em andamento, dispara um novo
       if (!this._templateRequests.has(template)) {
-        const request = this._hass
-          .callWS({ type: "render_template", template })
-          .then((response) => {
-            const result =
-              typeof response === "string"
-                ? response
-                : response && typeof response === "object" && "result" in response
-                  ? response.result
-                  : "";
+        const unsubscribe = this._hass.connection.subscribeMessage(
+          (msg) => {
+            const result = msg?.result || "";
             this._templateCache.set(template, {
-              value: String(result || ""),
+              value: String(result),
               ts: Date.now(),
             });
             this._templateRequests.delete(template);
+            // Desinscreve após receber o primeiro resultado
+            if (unsubscribe) {
+              unsubscribe();
+            }
             // Atualiza o card quando o template resolver
             requestAnimationFrame(() => this._updateCard());
-          })
-          .catch((error) => {
-            console.warn("Erro ao renderizar template:", error);
-            this._templateRequests.delete(template);
-          });
-        this._templateRequests.set(template, request);
+          },
+          { type: "render_template", template }
+        );
+        this._templateRequests.set(template, unsubscribe);
       }
       
       // Retorna cache existente (mesmo que expirado) ou vazio enquanto aguarda
       return cached ? cached.value : "";
     } catch (error) {
+      console.warn("Erro ao renderizar template:", error);
       return "";
     }
   }
