@@ -865,48 +865,47 @@ class GoogleMapsCarCardCadu extends HTMLElement {
   _setupMapInteractionListeners() {
     if (!this._map) return;
     
-    // Variável para rastrear se o usuário está interagindo
-    let userDragging = false;
-    let userZooming = false;
+    let userInitiatedAction = false;
     
     // Detectar quando o usuário começa a arrastar o mapa
+    // dragstart SEMPRE é iniciado pelo usuário, nunca programático
     google.maps.event.addListener(this._map, "dragstart", () => {
-      // Só processar se não for movimento programático
       if (!this._isPerformingProgrammaticMove) {
-        userDragging = true;
+        userInitiatedAction = true;
+      }
+    });
+    
+    // Quando o mapa termina TODAS as animações e fica idle
+    google.maps.event.addListener(this._map, "idle", () => {
+      // Se houve ação do usuário E o mapa agora está idle (parado)
+      if (userInitiatedAction && !this._isPerformingProgrammaticMove) {
+        userInitiatedAction = false;
         this._handleUserInteraction();
+      } else {
+        // Reset flag se foi movimento programático
+        userInitiatedAction = false;
       }
     });
     
-    google.maps.event.addListener(this._map, "dragend", () => {
-      userDragging = false;
-    });
+    // Detectar zoom manual através do mousewheel
+    this.mapContainer.addEventListener("wheel", (e) => {
+      if (!this._isPerformingProgrammaticMove) {
+        userInitiatedAction = true;
+      }
+    }, { passive: true });
     
-    // Detectar início de zoom interativo (clique nos botões de zoom)
-    google.maps.event.addListener(this._map, "zoom_changed", () => {
-      // Apenas processar se:
-      // 1. Não for movimento programático
-      // 2. Não estiver arrastando
-      // 3. Já passou tempo suficiente desde o último movimento programático
-      if (!this._isPerformingProgrammaticMove && !userDragging) {
-        const now = Date.now();
-        const timeSinceLastProgrammatic = this._lastProgrammaticMoveTime 
-          ? (now - this._lastProgrammaticMoveTime) 
-          : Infinity;
-        
-        // Só considerar como interação do usuário se passou mais de 500ms desde o último movimento programático
-        if (timeSinceLastProgrammatic > 500) {
-          if (!userZooming) {
-            userZooming = true;
-            this._handleUserInteraction();
-            // Reset flag após um tempo
-            setTimeout(() => {
-              userZooming = false;
-            }, 200);
+    // Detectar cliques nos controles de zoom
+    // Criar observer para detectar cliques nos botões de zoom
+    setTimeout(() => {
+      const zoomControls = this.mapContainer.querySelectorAll('button[aria-label*="Zoom"], button[aria-label*="zoom"], button[title*="Zoom"], button[title*="zoom"]');
+      zoomControls.forEach(button => {
+        button.addEventListener("click", () => {
+          if (!this._isPerformingProgrammaticMove) {
+            userInitiatedAction = true;
           }
-        }
-      }
-    });
+        });
+      });
+    }, 1000);
   }
 
   _handleUserInteraction() {
@@ -1687,7 +1686,6 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     
     // Marcar como movimento programático
     this._isPerformingProgrammaticMove = true;
-    this._lastProgrammaticMoveTime = Date.now();
     
     const bounds = new google.maps.LatLngBounds();
     Object.values(this.markers).forEach((marker) => {
@@ -1705,12 +1703,11 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       if (this._map.getZoom() > maxZoom) {
         this._map.setZoom(maxZoom);
       }
-      
-      // Desmarcar movimento programático após conclusão com delay maior
-      setTimeout(() => {
-        this._isPerformingProgrammaticMove = false;
-        this._lastProgrammaticMoveTime = Date.now();
-      }, 500);
+    });
+    
+    // Usar evento 'idle' para garantir que o mapa terminou de animar
+    google.maps.event.addListenerOnce(this._map, "idle", () => {
+      this._isPerformingProgrammaticMove = false;
     });
   }
 
