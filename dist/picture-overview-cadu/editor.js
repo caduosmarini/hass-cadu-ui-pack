@@ -190,6 +190,10 @@ class PictureOverviewCaduEditor extends HTMLElement {
                 label: "Mostrar estado",
                 selector: { boolean: {} },
               },
+              show_condition: {
+                label: "Condicao (template Jinja: true exibe, false oculta)",
+                selector: { template: {} },
+              },
               position: {
                 label: "Posicao do overlay",
                 selector: {

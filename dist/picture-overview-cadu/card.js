@@ -245,11 +245,24 @@ class PictureOverviewCadu extends HTMLElement {
     this._updateOverlayBottom(overlay);
   }
 
+  _isEntityVisible(entityConfig) {
+    const condition = entityConfig?.show_condition;
+    if (!condition || typeof condition !== "string" || condition.trim() === "") {
+      return true;
+    }
+    const result = this._renderTemplate(condition);
+    const v = String(result).trim().toLowerCase();
+    if (v === "" || v === "false" || v === "no" || v === "0") {
+      return false;
+    }
+    return true;
+  }
+
   _updateOverlayTop(overlayTop) {
     const overlayEntities = this._getOverlayEntityConfigs();
-    const topEntities = overlayEntities.filter(
-      (entityConfig) => (entityConfig.position || "bottom") === "top"
-    );
+    const topEntities = overlayEntities
+      .filter((entityConfig) => (entityConfig.position || "bottom") === "top")
+      .filter((entityConfig) => this._isEntityVisible(entityConfig));
 
     overlayTop.innerHTML = "";
     if (topEntities.length === 0) return;
@@ -287,9 +300,9 @@ class PictureOverviewCadu extends HTMLElement {
     const subtitle = this._renderTemplate(this._config?.subtitle || "");
     const titleIcon = this._config?.title_icon || "";
     const overlayEntities = this._getOverlayEntityConfigs();
-    const bottomEntities = overlayEntities.filter(
-      (entityConfig) => (entityConfig.position || "bottom") === "bottom"
-    );
+    const bottomEntities = overlayEntities
+      .filter((entityConfig) => (entityConfig.position || "bottom") === "bottom")
+      .filter((entityConfig) => this._isEntityVisible(entityConfig));
 
     overlay.innerHTML = "";
     overlay.style.display = (titleText || subtitle || bottomEntities.length > 0) ? "flex" : "none";

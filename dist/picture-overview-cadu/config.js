@@ -1,4 +1,4 @@
-const ENTITY_FIELD_ORDER = ["entity", "name", "icon", "show_state", "position", "decimals", "background_color", "text_color", "tap_action"];
+const ENTITY_FIELD_ORDER = ["entity", "name", "icon", "show_state", "show_condition", "position", "decimals", "background_color", "text_color", "tap_action"];
 
 function normalizeColor(colorValue) {
   if (!colorValue) {
@@ -60,6 +60,7 @@ function normalizeEntityConfig(entityConfig) {
       name: "",
       icon: "",
       show_state: false,
+      show_condition: "",
       position: "bottom",
       decimals: 1,
       background_color: "",
@@ -75,6 +76,7 @@ function normalizeEntityConfig(entityConfig) {
       name: entityConfig.name || "",
       icon: entityConfig.icon || "",
       show_state: entityConfig.show_state === true,
+      show_condition: typeof entityConfig.show_condition === "string" ? entityConfig.show_condition : "",
       position: entityConfig.position || "bottom",
       decimals: Number.isFinite(entityConfig.decimals) ? entityConfig.decimals : 1,
       background_color: normalizeColor(entityConfig.background_color),
@@ -109,6 +111,7 @@ function normalizeEntityConfig(entityConfig) {
       name: entityConfig.name || "",
       icon: entityConfig.icon || "",
       show_state: entityConfig.show_state === true,
+      show_condition: typeof entityConfig.show_condition === "string" ? entityConfig.show_condition : "",
       position: entityConfig.position || "bottom",
       decimals: Number.isFinite(entityConfig.decimals) ? entityConfig.decimals : 1,
       background_color: normalizeColor(entityConfig.background_color),
