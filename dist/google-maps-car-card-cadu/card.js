@@ -63,7 +63,9 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     this.followCountdownElement.appendChild(iconSvg);
     
     // Adicionar listener para clicar e retomar o seguir imediatamente
-    this.followCountdownElement.addEventListener("click", () => {
+    this.followCountdownElement.addEventListener("click", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
       this._resumeFollowImmediately();
     });
     
@@ -867,7 +869,14 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     
     let interactionTimeout = null;
     
-    const handleInteraction = () => {
+    const handleInteraction = (e) => {
+      // Ignorar cliques nos controles do card (menu superior, contador, etc)
+      if (e.target.closest('.map-controls') || 
+          e.target.closest('.follow-countdown') ||
+          e.target.closest('.options-menu')) {
+        return;
+      }
+      
       // Evitar múltiplas chamadas consecutivas (debounce de 100ms)
       if (interactionTimeout) return;
       
@@ -1455,7 +1464,9 @@ class GoogleMapsCarCardCadu extends HTMLElement {
           iconButton.src = imageUrl;
           iconButton.title = this._getEntityDisplayName(entityConfig, entityState);
           
-          iconButton.addEventListener("click", () => {
+          iconButton.addEventListener("click", (e) => {
+            e.stopPropagation();
+            e.preventDefault();
             this._uiState.entityVisibility[entityConfig.entity] = !isVisible;
             this._saveUIState();
             this._renderControls();
@@ -1476,6 +1487,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     optionsButton.innerHTML = "⚙️ Opções";
     optionsButton.addEventListener("click", (e) => {
       e.stopPropagation();
+      e.preventDefault();
       this._optionsMenuOpen = !this._optionsMenuOpen;
       this._renderControls();
     });
@@ -1499,14 +1511,21 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     } else {
       trafficCheckbox.checked = this._uiState.trafficEnabled;
     }
-    trafficCheckbox.addEventListener("change", () => {
+    trafficCheckbox.addEventListener("change", (e) => {
+      e.stopPropagation();
       this._uiState.trafficOverride = true;
       this._uiState.trafficEnabled = trafficCheckbox.checked;
       this._saveUIState();
       this._toggleTrafficLayer();
     });
+    trafficCheckbox.addEventListener("click", (e) => {
+      e.stopPropagation();
+    });
     trafficLabel.appendChild(trafficCheckbox);
     trafficLabel.appendChild(document.createTextNode("Trânsito"));
+    trafficLabel.addEventListener("click", (e) => {
+      e.stopPropagation();
+    });
     optionsMenu.appendChild(trafficLabel);
 
     // Opção: Modo Noturno
@@ -1522,14 +1541,21 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     } else {
       nightCheckbox.checked = this._uiState.nightModeEnabled;
     }
-    nightCheckbox.addEventListener("change", () => {
+    nightCheckbox.addEventListener("change", (e) => {
+      e.stopPropagation();
       this._uiState.nightModeOverride = true;
       this._uiState.nightModeEnabled = nightCheckbox.checked;
       this._saveUIState();
       this._applyNightMode();
     });
+    nightCheckbox.addEventListener("click", (e) => {
+      e.stopPropagation();
+    });
     nightLabel.appendChild(nightCheckbox);
     nightLabel.appendChild(document.createTextNode("Modo Noturno"));
+    nightLabel.addEventListener("click", (e) => {
+      e.stopPropagation();
+    });
     optionsMenu.appendChild(nightLabel);
 
     // Opção: Seguir
@@ -1546,7 +1572,8 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     } else {
       followCheckbox.checked = this._uiState.followEnabled;
     }
-    followCheckbox.addEventListener("change", () => {
+    followCheckbox.addEventListener("change", (e) => {
+      e.stopPropagation();
       this._uiState.followOverride = true;
       this._uiState.followEnabled = followCheckbox.checked;
       this._saveUIState();
@@ -1568,8 +1595,14 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         this._fitMapBounds();
       }
     });
+    followCheckbox.addEventListener("click", (e) => {
+      e.stopPropagation();
+    });
     followLabel.appendChild(followCheckbox);
     followLabel.appendChild(document.createTextNode("Seguir"));
+    followLabel.addEventListener("click", (e) => {
+      e.stopPropagation();
+    });
     optionsMenu.appendChild(followLabel);
 
     // Separador
@@ -1582,7 +1615,8 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     const rotateCheckbox = document.createElement("input");
     rotateCheckbox.type = "checkbox";
     rotateCheckbox.checked = this._uiState.rotateImageEnabled;
-    rotateCheckbox.addEventListener("change", () => {
+    rotateCheckbox.addEventListener("change", (e) => {
+      e.stopPropagation();
       this._uiState.rotateImageEnabled = rotateCheckbox.checked;
       this._saveUIState();
       // Recarrega os marcadores para aplicar/remover rotação
@@ -1592,8 +1626,14 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         });
       }
     });
+    rotateCheckbox.addEventListener("click", (e) => {
+      e.stopPropagation();
+    });
     rotateLabel.appendChild(rotateCheckbox);
     rotateLabel.appendChild(document.createTextNode("Rotação"));
+    rotateLabel.addEventListener("click", (e) => {
+      e.stopPropagation();
+    });
     optionsMenu.appendChild(rotateLabel);
 
     // Opção: Seta
@@ -1601,7 +1641,8 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     const arrowCheckbox = document.createElement("input");
     arrowCheckbox.type = "checkbox";
     arrowCheckbox.checked = this._uiState.arrowEnabled;
-    arrowCheckbox.addEventListener("change", () => {
+    arrowCheckbox.addEventListener("change", (e) => {
+      e.stopPropagation();
       this._uiState.arrowEnabled = arrowCheckbox.checked;
       this._saveUIState();
       if (this._config.entities) {
@@ -1610,8 +1651,14 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         });
       }
     });
+    arrowCheckbox.addEventListener("click", (e) => {
+      e.stopPropagation();
+    });
     arrowLabel.appendChild(arrowCheckbox);
     arrowLabel.appendChild(document.createTextNode("Seta"));
+    arrowLabel.addEventListener("click", (e) => {
+      e.stopPropagation();
+    });
     optionsMenu.appendChild(arrowLabel);
 
     // Montar a estrutura
@@ -1619,10 +1666,21 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     this.controlsContainer.appendChild(rightContainer);
     this.controlsContainer.appendChild(optionsMenu);
 
+    // Prevenir que cliques no menu de opções fechem o menu
+    optionsMenu.addEventListener("click", (e) => {
+      e.stopPropagation();
+    });
+    
     // Adicionar listener para fechar o menu quando clicar fora
     if (this._optionsMenuOpen) {
       setTimeout(() => {
-        document.addEventListener("click", this._closeOptionsMenu.bind(this), { once: true });
+        const closeHandler = (e) => {
+          // Se clicar fora do menu e do botão
+          if (!e.target.closest('.options-menu') && !e.target.closest('.options-button')) {
+            this._closeOptionsMenu();
+          }
+        };
+        document.addEventListener("click", closeHandler, { once: true });
       }, 0);
     }
   }
