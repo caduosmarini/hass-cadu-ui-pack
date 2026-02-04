@@ -235,31 +235,57 @@ class PictureOverviewCadu extends HTMLElement {
     if (imageUrlChanged) {
       if (imageUrl) {
         const fromEntity = !!this._config?.image_entity;
-        img.onload = null;
-        img.onerror = null;
-        if (fromEntity) {
-          placeholder.textContent = "Carregando imagem…";
-          placeholder.style.display = "flex";
-          img.style.display = "none";
-          img.onload = () => {
-            placeholder.style.display = "none";
-            img.style.display = "block";
+        const hasCachedImage = img.src && img.complete && img.naturalWidth > 0;
+
+        if (fromEntity && hasCachedImage && this._pendingImageUrl !== imageUrl) {
+          // Mostra a imagem anterior enquanto a nova carrega em background (cache visual)
+          this._pendingImageUrl = imageUrl;
+          const preload = new Image();
+          preload.onload = () => {
+            if (this._pendingImageUrl === imageUrl && this._elements?.img) {
+              this._elements.img.src = imageUrl;
+              this._elements.img.style.display = "block";
+              this._elements.placeholder.style.display = "none";
+            }
+            this._pendingImageUrl = null;
           };
-          img.onerror = () => {
-            placeholder.textContent = "Erro ao carregar imagem";
+          preload.onerror = () => {
+            if (this._pendingImageUrl === imageUrl && this._elements?.placeholder) {
+              this._elements.placeholder.textContent = "Erro ao carregar imagem";
+              this._elements.placeholder.style.display = "flex";
+              this._elements.img.style.display = "none";
+            }
+            this._pendingImageUrl = null;
+          };
+          preload.src = imageUrl;
+        } else if (!(fromEntity && hasCachedImage)) {
+          img.onload = null;
+          img.onerror = null;
+          if (fromEntity) {
+            placeholder.textContent = "Carregando imagem…";
             placeholder.style.display = "flex";
             img.style.display = "none";
-          };
-        } else {
-          placeholder.style.display = "none";
-          img.style.display = "block";
-        }
-        img.src = imageUrl;
-        if (fromEntity && img.complete && img.naturalWidth) {
-          placeholder.style.display = "none";
-          img.style.display = "block";
+            img.onload = () => {
+              placeholder.style.display = "none";
+              img.style.display = "block";
+            };
+            img.onerror = () => {
+              placeholder.textContent = "Erro ao carregar imagem";
+              placeholder.style.display = "flex";
+              img.style.display = "none";
+            };
+          } else {
+            placeholder.style.display = "none";
+            img.style.display = "block";
+          }
+          img.src = imageUrl;
+          if (fromEntity && img.complete && img.naturalWidth) {
+            placeholder.style.display = "none";
+            img.style.display = "block";
+          }
         }
       } else {
+        this._pendingImageUrl = null;
         img.src = "";
         img.style.display = "none";
         placeholder.textContent = "Configure image ou image_entity";
