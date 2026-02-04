@@ -865,47 +865,72 @@ class GoogleMapsCarCardCadu extends HTMLElement {
   _setupMapInteractionListeners() {
     if (!this._map) return;
     
-    let userInitiatedAction = false;
-    
     // Detectar quando o usuário começa a arrastar o mapa
-    // dragstart SEMPRE é iniciado pelo usuário, nunca programático
+    // dragstart é SEMPRE iniciado pelo usuário, nunca programaticamente
     google.maps.event.addListener(this._map, "dragstart", () => {
-      if (!this._isPerformingProgrammaticMove) {
-        userInitiatedAction = true;
-      }
-    });
-    
-    // Quando o mapa termina TODAS as animações e fica idle
-    google.maps.event.addListener(this._map, "idle", () => {
-      // Se houve ação do usuário E o mapa agora está idle (parado)
-      if (userInitiatedAction && !this._isPerformingProgrammaticMove) {
-        userInitiatedAction = false;
+      // Só processar se passar tempo suficiente desde último movimento programático
+      const now = Date.now();
+      const timeSinceLastProgrammatic = this._lastProgrammaticMoveTime 
+        ? (now - this._lastProgrammaticMoveTime) 
+        : Infinity;
+      
+      if (timeSinceLastProgrammatic > 1000) {
         this._handleUserInteraction();
-      } else {
-        // Reset flag se foi movimento programático
-        userInitiatedAction = false;
       }
     });
     
     // Detectar zoom manual através do mousewheel
     this.mapContainer.addEventListener("wheel", (e) => {
-      if (!this._isPerformingProgrammaticMove) {
-        userInitiatedAction = true;
+      const now = Date.now();
+      const timeSinceLastProgrammatic = this._lastProgrammaticMoveTime 
+        ? (now - this._lastProgrammaticMoveTime) 
+        : Infinity;
+      
+      if (timeSinceLastProgrammatic > 1000) {
+        this._handleUserInteraction();
       }
     }, { passive: true });
     
-    // Detectar cliques nos controles de zoom
-    // Criar observer para detectar cliques nos botões de zoom
-    setTimeout(() => {
-      const zoomControls = this.mapContainer.querySelectorAll('button[aria-label*="Zoom"], button[aria-label*="zoom"], button[title*="Zoom"], button[title*="zoom"]');
-      zoomControls.forEach(button => {
-        button.addEventListener("click", () => {
-          if (!this._isPerformingProgrammaticMove) {
-            userInitiatedAction = true;
-          }
-        });
+    // Detectar cliques em todos os controles do mapa (zoom e pan)
+    // Usar MutationObserver para detectar quando os controles são adicionados
+    const setupControlListeners = () => {
+      // Detectar todos os botões do Google Maps
+      const allButtons = this.mapContainer.querySelectorAll('button');
+      
+      allButtons.forEach(button => {
+        // Evitar adicionar múltiplos listeners
+        if (!button.hasAttribute('data-interaction-listener')) {
+          button.setAttribute('data-interaction-listener', 'true');
+          
+          button.addEventListener("click", () => {
+            const now = Date.now();
+            const timeSinceLastProgrammatic = this._lastProgrammaticMoveTime 
+              ? (now - this._lastProgrammaticMoveTime) 
+              : Infinity;
+            
+            if (timeSinceLastProgrammatic > 1000) {
+              this._handleUserInteraction();
+            }
+          });
+        }
       });
-    }, 1000);
+    };
+    
+    // Executar após o mapa carregar
+    setTimeout(setupControlListeners, 1000);
+    
+    // Observar mudanças no DOM para capturar controles adicionados dinamicamente
+    const observer = new MutationObserver(() => {
+      setupControlListeners();
+    });
+    
+    observer.observe(this.mapContainer, {
+      childList: true,
+      subtree: true
+    });
+    
+    // Guardar referência para cleanup se necessário
+    this._mapControlsObserver = observer;
   }
 
   _handleUserInteraction() {
