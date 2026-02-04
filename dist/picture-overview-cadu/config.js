@@ -1,4 +1,4 @@
-const ENTITY_FIELD_ORDER = ["entity", "name", "icon", "show_state", "show_condition", "position", "decimals", "background_color", "text_color", "tap_action"];
+const ENTITY_FIELD_ORDER = ["entity", "name", "icon", "show_state", "show_condition", "position", "decimals", "background_color", "background_color_opacity", "text_color", "tap_action"];
 
 function normalizeColor(colorValue) {
   if (!colorValue) {
@@ -64,6 +64,7 @@ function normalizeEntityConfig(entityConfig) {
       position: "bottom",
       decimals: 1,
       background_color: "",
+      background_color_opacity: null,
       text_color: "",
       tap_action: {},
     };
@@ -71,6 +72,7 @@ function normalizeEntityConfig(entityConfig) {
 
   try {
     const numericKeys = Object.keys(entityConfig).filter((key) => /^\d+$/.test(key));
+    const opacity = entityConfig.background_color_opacity;
     const normalized = {
       entity: entityConfig.entity || "",
       name: entityConfig.name || "",
@@ -80,6 +82,7 @@ function normalizeEntityConfig(entityConfig) {
       position: entityConfig.position || "bottom",
       decimals: Number.isFinite(entityConfig.decimals) ? entityConfig.decimals : 1,
       background_color: normalizeColor(entityConfig.background_color),
+      background_color_opacity: Number.isFinite(opacity) ? Math.max(0, Math.min(100, opacity)) : null,
       text_color: normalizeColor(entityConfig.text_color),
       tap_action: entityConfig.tap_action || {},
     };
@@ -106,6 +109,7 @@ function normalizeEntityConfig(entityConfig) {
     return normalized;
   } catch (error) {
     console.error("Erro ao normalizar entidade:", error, entityConfig);
+    const opacityFallback = entityConfig.background_color_opacity;
     return {
       entity: entityConfig.entity || "",
       name: entityConfig.name || "",
@@ -115,11 +119,32 @@ function normalizeEntityConfig(entityConfig) {
       position: entityConfig.position || "bottom",
       decimals: Number.isFinite(entityConfig.decimals) ? entityConfig.decimals : 1,
       background_color: normalizeColor(entityConfig.background_color),
+      background_color_opacity: Number.isFinite(opacityFallback) ? Math.max(0, Math.min(100, opacityFallback)) : null,
       text_color: normalizeColor(entityConfig.text_color),
       tap_action: entityConfig.tap_action || {},
       ...entityConfig,
     };
   }
+}
+
+function colorWithOpacity(colorStr, opacityPercent) {
+  if (!colorStr || typeof colorStr !== "string" || !Number.isFinite(opacityPercent)) {
+    return colorStr || "";
+  }
+  const alpha = Math.max(0, Math.min(1, opacityPercent / 100));
+  const hexMatch = colorStr.match(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/);
+  if (hexMatch) {
+    const hex = hexMatch[1];
+    const r = hex.length === 3 ? parseInt(hex[0] + hex[0], 16) : parseInt(hex.slice(0, 2), 16);
+    const g = hex.length === 3 ? parseInt(hex[1] + hex[1], 16) : parseInt(hex.slice(2, 4), 16);
+    const b = hex.length === 3 ? parseInt(hex[2] + hex[2], 16) : parseInt(hex.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  const rgbaMatch = colorStr.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*[\d.]+)?\s*\)/);
+  if (rgbaMatch) {
+    return `rgba(${rgbaMatch[1]}, ${rgbaMatch[2]}, ${rgbaMatch[3]}, ${alpha})`;
+  }
+  return colorStr;
 }
 
 function normalizeEntitiesConfig(entities) {
@@ -256,4 +281,4 @@ function normalizeConfig(config) {
   }
 }
 
-export { ENTITY_FIELD_ORDER, normalizeColor, normalizeConfig, normalizeEntitiesConfig };
+export { ENTITY_FIELD_ORDER, colorWithOpacity, normalizeColor, normalizeConfig, normalizeEntitiesConfig };

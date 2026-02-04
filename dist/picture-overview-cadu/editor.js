@@ -213,6 +213,10 @@ class PictureOverviewCaduEditor extends HTMLElement {
                 label: "Cor de fundo (opcional)",
                 selector: { color_rgb: {} },
               },
+              background_color_opacity: {
+                label: "Opacidade do fundo (0-100, opcional)",
+                selector: { number: { min: 0, max: 100, step: 5, unit_of_measurement: "%" } },
+              },
               text_color: {
                 label: "Cor do texto (opcional)",
                 selector: { color_rgb: {} },

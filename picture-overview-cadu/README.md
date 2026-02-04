@@ -79,6 +79,7 @@ O editor visual do card apresenta as mesmas opcoes do YAML: imagem (url/local ou
   - `show_condition`: Template Jinja condicional (opcional). Se o resultado for verdadeiro (`true`, `yes`, `1` ou texto nao vazio), a entidade e exibida; se for falso (`false`, `no`, `0` ou vazio), a entidade fica oculta. Ex.: `{{ is_state('input_boolean.modo_noturno', 'on') }}`.
   - `decimals`: Numero de casas decimais quando o estado for numerico (padrao: 1).
   - `background_color`: Cor de fundo do chip (RGB array ou string hex, opcional). Suporta transparência: `[255, 255, 255, 0.5]` ou `rgba(255, 255, 255, 0.5)`.
+  - `background_color_opacity`: Opacidade do fundo em porcentagem 0-100 (opcional). Quando definido, sobrescreve o canal alpha da cor e aplica esta opacidade.
   - `text_color`: Cor do texto do chip (RGB array ou string hex, opcional). Suporta transparência.
   - `icon`: Icone customizado (opcional). Se nao definido, usa o icone da entidade.
   - `entity`: Entidade.

@@ -1,4 +1,4 @@
-import { normalizeConfig } from "./config.js";
+import { colorWithOpacity, normalizeConfig } from "./config.js";
 
 class PictureOverviewCadu extends HTMLElement {
   constructor() {
@@ -361,8 +361,11 @@ class PictureOverviewCadu extends HTMLElement {
         const overlayEntity = document.createElement("div");
         overlayEntity.className = "overlay-entity";
         
-        // Aplicar cores customizadas
-        const bgColor = entityConfig.background_color || "rgba(255, 255, 255, 0.25)";
+        // Aplicar cores customizadas (com opacidade se definida)
+        const baseBg = entityConfig.background_color || "rgba(255, 255, 255, 0.25)";
+        const bgColor = entityConfig.background_color_opacity != null
+          ? colorWithOpacity(baseBg, entityConfig.background_color_opacity)
+          : baseBg;
         const textColor = entityConfig.text_color || "#fff";
         overlayEntity.style.background = bgColor;
         overlayEntity.style.color = textColor;
