@@ -380,11 +380,14 @@ class PictureOverviewCadu extends HTMLElement {
       });
 
       const icon = this._createEntityIcon(entityConfig);
+      this._applyEntityIconOnOffColor(icon, entityConfig.entity);
       overlayEntity.appendChild(icon);
 
-      const state = document.createElement("div");
-      state.textContent = this._getEntityState(entityConfig.entity, entityConfig);
-      overlayEntity.appendChild(state);
+      if (entityConfig.show_state === true) {
+        const state = document.createElement("div");
+        state.textContent = this._getEntityState(entityConfig.entity, entityConfig);
+        overlayEntity.appendChild(state);
+      }
 
       overlayTop.appendChild(overlayEntity);
     });
@@ -479,11 +482,14 @@ class PictureOverviewCadu extends HTMLElement {
         });
 
         const icon = this._createEntityIcon(entityConfig);
+        this._applyEntityIconOnOffColor(icon, entityConfig.entity);
         overlayEntity.appendChild(icon);
 
-        const state = document.createElement("div");
-        state.textContent = this._getEntityState(entityConfig.entity, entityConfig);
-        overlayEntity.appendChild(state);
+        if (entityConfig.show_state === true) {
+          const state = document.createElement("div");
+          state.textContent = this._getEntityState(entityConfig.entity, entityConfig);
+          overlayEntity.appendChild(state);
+        }
 
         overlayEntitiesWrap.appendChild(overlayEntity);
       });
@@ -625,14 +631,7 @@ class PictureOverviewCadu extends HTMLElement {
 
   _getOverlayEntityConfigs() {
     const entities = Array.isArray(this._config?.entities) ? this._config.entities : [];
-    if (entities.length === 0) {
-      return [];
-    }
-    const withState = entities.filter((entityConfig) => entityConfig?.show_state === true);
-    if (withState.length > 0) {
-      return withState;
-    }
-    return entities.length > 0 ? [entities[0]] : [];
+    return entities;
   }
 
   _getEntityName(entityConfig) {
@@ -681,6 +680,20 @@ class PictureOverviewCadu extends HTMLElement {
       return "mdi:thermometer";
     }
     return "";
+  }
+
+  /** Aplica cor amarela (on) ou cinza (off) no ícone para entidades on/off. */
+  _applyEntityIconOnOffColor(iconElement, entityId) {
+    if (!iconElement || !entityId || !this._hass?.states?.[entityId]) return;
+    const state = this._hass.states[entityId];
+    const s = String(state.state || "").toLowerCase();
+    if (s === "on") {
+      iconElement.style.color = "var(--state-icon-active-color, var(--state-active-color, #fdd835))";
+    } else if (s === "off" || s === "unavailable") {
+      iconElement.style.color = "var(--state-icon-inactive-color, var(--state-inactive-color, #9e9e9e))";
+    } else {
+      iconElement.style.color = "";
+    }
   }
 
   _getEntityState(entityId, entityConfig = null) {
