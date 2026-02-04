@@ -101,6 +101,10 @@ API key, entidades, rastro, modo noturno, transito, seguir, rotacao, limites de 
 
 - **Rotacao**: Ativa/desativa a rotacao do marcador.
 - **Seta**: Exibe/oculta a seta de direcao na caixa de info (mantem velocidade/altitude).
+- **Seguir**: Centraliza automaticamente o mapa nas entidades. Quando ativo:
+  - Se voce mover ou dar zoom no mapa manualmente, o seguir e pausado temporariamente.
+  - Apos 10 segundos sem interacao, o seguir e reativado automaticamente.
+  - Desmarcar e remarcar o checkbox cancela a pausa.
 
 ## Desenvolvimento
 

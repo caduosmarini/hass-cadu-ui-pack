@@ -31,6 +31,9 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       arrowEnabled: true,
       entityVisibility: {},
     };
+    this._followPausedByUser = false; // Seguir pausado por interação do usuário
+    this._followResumeTimer = null; // Timer para retomar o seguir
+    this._isPerformingProgrammaticMove = false; // Flag para ignorar eventos durante movimento programático
     this._updateStyles();
   }
 
@@ -577,6 +580,10 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       fullscreenControl: this._config.mostrar_tela_cheia !== false,
       zoomControl: this._config.mostrar_controles_navegacao !== false,
     });
+    
+    // Adicionar listeners para detectar interação do usuário com o mapa
+    this._setupMapInteractionListeners();
+    
     this._renderControls();
     // Aplicar modo noturno após renderizar controles para garantir que o estado está carregado
     setTimeout(() => {
@@ -621,6 +628,11 @@ class GoogleMapsCarCardCadu extends HTMLElement {
   }
 
   _shouldFollow() {
+    // Se o seguir foi pausado pelo usuário, retornar false
+    if (this._followPausedByUser) {
+      return false;
+    }
+    
     if (this._config.follow_entity && this._config.follow_entity !== "") {
       const followEntity = this._hass.states[this._config.follow_entity];
       if (!this._uiState.followOverride) {
@@ -631,6 +643,52 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       return this._config.seguir_on === true;
     }
     return this._uiState.followEnabled;
+  }
+
+  _setupMapInteractionListeners() {
+    if (!this._map) return;
+    
+    // Detectar quando o usuário começa a interagir com o mapa
+    const handleUserInteraction = () => {
+      // Ignorar se estamos fazendo um movimento programático
+      if (this._isPerformingProgrammaticMove) {
+        return;
+      }
+      
+      // Verificar se o seguir estava ativo antes da interação
+      const wasFollowActive = this._config.follow_entity && this._config.follow_entity !== ""
+        ? (this._hass?.states?.[this._config.follow_entity]?.state === "on" && !this._uiState.followOverride)
+        : (this._config.mostrar_menu === false && !this._config.follow_entity
+          ? this._config.seguir_on === true
+          : this._uiState.followEnabled);
+      
+      if (!wasFollowActive) {
+        return; // Não fazer nada se o seguir não estava ativo
+      }
+      
+      // Pausar o seguir
+      this._followPausedByUser = true;
+      
+      // Limpar timer anterior se existir
+      if (this._followResumeTimer) {
+        clearTimeout(this._followResumeTimer);
+      }
+      
+      // Reiniciar timer de 10 segundos para retomar o seguir
+      this._followResumeTimer = setTimeout(() => {
+        this._followPausedByUser = false;
+        this._followResumeTimer = null;
+        
+        // Retomar o seguir
+        if (this._shouldFollow()) {
+          this._fitMapBounds();
+        }
+      }, 10000);
+    };
+    
+    // Adicionar listeners para diferentes tipos de interação
+    google.maps.event.addListener(this._map, "dragstart", handleUserInteraction);
+    google.maps.event.addListener(this._map, "zoom_changed", handleUserInteraction);
   }
 
   _applyNightMode() {
@@ -1117,6 +1175,14 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       this._uiState.followOverride = true;
       this._uiState.followEnabled = followCheckbox.checked;
       this._saveUIState();
+      
+      // Limpar pausa do usuário quando o seguir é alterado manualmente
+      this._followPausedByUser = false;
+      if (this._followResumeTimer) {
+        clearTimeout(this._followResumeTimer);
+        this._followResumeTimer = null;
+      }
+      
       if (this._shouldFollow()) {
         this._fitMapBounds();
       }
@@ -1221,6 +1287,9 @@ class GoogleMapsCarCardCadu extends HTMLElement {
   _fitMapBounds() {
     if (!this._map || !this.markers || Object.keys(this.markers).length === 0) return;
     
+    // Marcar como movimento programático
+    this._isPerformingProgrammaticMove = true;
+    
     const bounds = new google.maps.LatLngBounds();
     Object.values(this.markers).forEach((marker) => {
       bounds.extend(marker.getPosition());
@@ -1237,11 +1306,19 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       if (this._map.getZoom() > maxZoom) {
         this._map.setZoom(maxZoom);
       }
+      
+      // Desmarcar movimento programático após conclusão
+      setTimeout(() => {
+        this._isPerformingProgrammaticMove = false;
+      }, 100);
     });
   }
 
   _centerOnMarkerWithPadding(location) {
     if (!this._map) return;
+    
+    // Marcar como movimento programático
+    this._isPerformingProgrammaticMove = true;
     
     // Criar bounds com padding para mostrar as info boxes acima do marcador
     const bounds = new google.maps.LatLngBounds();
@@ -1265,6 +1342,11 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       if (this._map.getZoom() > maxZoom) {
         this._map.setZoom(maxZoom);
       }
+      
+      // Desmarcar movimento programático após conclusão
+      setTimeout(() => {
+        this._isPerformingProgrammaticMove = false;
+      }, 100);
     });
   }
 }
