@@ -139,7 +139,6 @@ class PictureOverviewCadu extends HTMLElement {
         color: #fff;
         font-size: 13px;
         font-weight: 500;
-        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
         pointer-events: auto;
         transition: all 0.2s ease-in-out;
         cursor: pointer;
@@ -229,34 +228,70 @@ class PictureOverviewCadu extends HTMLElement {
 
     const { img, placeholder, overlayTop, overlay } = this._elements;
 
-    // Só mexe na imagem quando a URL mudar (evita recarregar quando só o template/subtitle atualiza)
     const imageUrl = this._getImageUrl();
+    const fromEntity = !!this._config?.image_entity;
+    const entityId = this._config?.image_entity || "";
     const imageUrlChanged = (imageUrl || "") !== (img.src || "");
-    if (imageUrlChanged) {
-      if (imageUrl) {
-        const fromEntity = !!this._config?.image_entity;
-        const hasCachedImage = img.src && img.complete && img.naturalWidth > 0;
 
-        if (fromEntity && hasCachedImage && this._pendingImageUrl !== imageUrl) {
-          // Mostra a imagem anterior enquanto a nova carrega em background (cache visual)
+    // Hass ainda não pronto: mostra cache do localStorage (ex.: após refresh)
+    if (fromEntity && !imageUrl) {
+      const cachedUrl = this._getImageEntityCache(entityId);
+      if (cachedUrl) {
+        img.src = cachedUrl;
+        img.style.display = "block";
+        placeholder.style.display = "none";
+      } else {
+        img.src = "";
+        img.style.display = "none";
+        placeholder.textContent = "Carregando imagem…";
+        placeholder.style.display = "flex";
+      }
+    } else if (imageUrlChanged) {
+      if (imageUrl) {
+        const hasCachedImage = img.src && img.complete && img.naturalWidth > 0;
+        const cachedUrl = fromEntity ? this._getImageEntityCache(entityId) : null;
+
+        const saveCache = () => fromEntity && this._saveImageEntityCache(entityId, imageUrl);
+        const showImage = () => {
+          img.style.display = "block";
+          placeholder.style.display = "none";
+          saveCache();
+        };
+
+        if (fromEntity && cachedUrl) {
+          // Mostra cache do navegador imediatamente (útil no refresh)
+          img.onload = null;
+          img.onerror = null;
+          img.src = cachedUrl;
+          img.style.display = "block";
+          placeholder.style.display = "none";
+          if (cachedUrl !== imageUrl && this._pendingImageUrl !== imageUrl) {
+            this._pendingImageUrl = imageUrl;
+            const preload = new Image();
+            preload.onload = () => {
+              if (this._pendingImageUrl === imageUrl && this._elements?.img) {
+                this._elements.img.src = imageUrl;
+                showImage();
+              }
+              this._pendingImageUrl = null;
+            };
+            preload.onerror = () => { this._pendingImageUrl = null; };
+            preload.src = imageUrl;
+          } else if (cachedUrl === imageUrl) {
+            if (img.complete && img.naturalWidth) saveCache();
+            else img.onload = saveCache;
+          }
+        } else if (fromEntity && hasCachedImage && this._pendingImageUrl !== imageUrl) {
           this._pendingImageUrl = imageUrl;
           const preload = new Image();
           preload.onload = () => {
             if (this._pendingImageUrl === imageUrl && this._elements?.img) {
               this._elements.img.src = imageUrl;
-              this._elements.img.style.display = "block";
-              this._elements.placeholder.style.display = "none";
+              showImage();
             }
             this._pendingImageUrl = null;
           };
-          preload.onerror = () => {
-            if (this._pendingImageUrl === imageUrl && this._elements?.placeholder) {
-              this._elements.placeholder.textContent = "Erro ao carregar imagem";
-              this._elements.placeholder.style.display = "flex";
-              this._elements.img.style.display = "none";
-            }
-            this._pendingImageUrl = null;
-          };
+          preload.onerror = () => { this._pendingImageUrl = null; };
           preload.src = imageUrl;
         } else if (!(fromEntity && hasCachedImage)) {
           img.onload = null;
@@ -265,10 +300,7 @@ class PictureOverviewCadu extends HTMLElement {
             placeholder.textContent = "Carregando imagem…";
             placeholder.style.display = "flex";
             img.style.display = "none";
-            img.onload = () => {
-              placeholder.style.display = "none";
-              img.style.display = "block";
-            };
+            img.onload = () => { placeholder.style.display = "none"; img.style.display = "block"; saveCache(); };
             img.onerror = () => {
               placeholder.textContent = "Erro ao carregar imagem";
               placeholder.style.display = "flex";
@@ -282,6 +314,7 @@ class PictureOverviewCadu extends HTMLElement {
           if (fromEntity && img.complete && img.naturalWidth) {
             placeholder.style.display = "none";
             img.style.display = "block";
+            saveCache();
           }
         }
       } else {
@@ -563,6 +596,26 @@ class PictureOverviewCadu extends HTMLElement {
       return this._hass.hassUrl(trimmed);
     }
     return trimmed;
+  }
+
+  static _imageCacheKey(entityId) {
+    return "picture-overview-cadu-img-" + (entityId || "");
+  }
+
+  _getImageEntityCache(entityId) {
+    if (!entityId || typeof entityId !== "string") return null;
+    try {
+      return localStorage.getItem(PictureOverviewCadu._imageCacheKey(entityId)) || null;
+    } catch {
+      return null;
+    }
+  }
+
+  _saveImageEntityCache(entityId, url) {
+    if (!entityId || typeof entityId !== "string" || !url) return;
+    try {
+      localStorage.setItem(PictureOverviewCadu._imageCacheKey(entityId), String(url));
+    } catch (_) {}
   }
 
   _getPrimaryEntityId() {
