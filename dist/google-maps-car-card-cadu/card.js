@@ -92,6 +92,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     this._followResumeTime = null; // Timestamp de quando o seguir será retomado
     this._followCountdownInterval = null; // Interval para atualizar o contador
     this._isPerformingProgrammaticMove = false; // Flag para ignorar eventos durante movimento programático
+    this._lastProgrammaticMoveTime = null; // Timestamp do último movimento programático
     this._optionsMenuOpen = false; // Estado do menu de opções
     this._updateStyles();
   }
@@ -865,28 +866,45 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     if (!this._map) return;
     
     // Variável para rastrear se o usuário está interagindo
-    let userInteracting = false;
+    let userDragging = false;
+    let userZooming = false;
     
     // Detectar quando o usuário começa a arrastar o mapa
     google.maps.event.addListener(this._map, "dragstart", () => {
-      userInteracting = true;
-      this._handleUserInteraction();
+      // Só processar se não for movimento programático
+      if (!this._isPerformingProgrammaticMove) {
+        userDragging = true;
+        this._handleUserInteraction();
+      }
     });
     
     google.maps.event.addListener(this._map, "dragend", () => {
-      userInteracting = false;
+      userDragging = false;
     });
     
-    // Detectar zoom do usuário (roda do mouse ou botões de zoom)
+    // Detectar início de zoom interativo (clique nos botões de zoom)
     google.maps.event.addListener(this._map, "zoom_changed", () => {
-      // Apenas processar se não for um movimento programático E não estiver arrastando
-      if (!this._isPerformingProgrammaticMove && !userInteracting) {
-        // Pequeno delay para verificar se foi zoom do usuário
-        setTimeout(() => {
-          if (!this._isPerformingProgrammaticMove) {
+      // Apenas processar se:
+      // 1. Não for movimento programático
+      // 2. Não estiver arrastando
+      // 3. Já passou tempo suficiente desde o último movimento programático
+      if (!this._isPerformingProgrammaticMove && !userDragging) {
+        const now = Date.now();
+        const timeSinceLastProgrammatic = this._lastProgrammaticMoveTime 
+          ? (now - this._lastProgrammaticMoveTime) 
+          : Infinity;
+        
+        // Só considerar como interação do usuário se passou mais de 500ms desde o último movimento programático
+        if (timeSinceLastProgrammatic > 500) {
+          if (!userZooming) {
+            userZooming = true;
             this._handleUserInteraction();
+            // Reset flag após um tempo
+            setTimeout(() => {
+              userZooming = false;
+            }, 200);
           }
-        }, 50);
+        }
       }
     });
   }
@@ -1669,6 +1687,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     
     // Marcar como movimento programático
     this._isPerformingProgrammaticMove = true;
+    this._lastProgrammaticMoveTime = Date.now();
     
     const bounds = new google.maps.LatLngBounds();
     Object.values(this.markers).forEach((marker) => {
@@ -1690,7 +1709,8 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       // Desmarcar movimento programático após conclusão com delay maior
       setTimeout(() => {
         this._isPerformingProgrammaticMove = false;
-      }, 300);
+        this._lastProgrammaticMoveTime = Date.now();
+      }, 500);
     });
   }
 
@@ -1699,6 +1719,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     
     // Marcar como movimento programático
     this._isPerformingProgrammaticMove = true;
+    this._lastProgrammaticMoveTime = Date.now();
     
     // Criar bounds com padding para mostrar as info boxes acima do marcador
     const bounds = new google.maps.LatLngBounds();
@@ -1726,7 +1747,8 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       // Desmarcar movimento programático após conclusão com delay maior
       setTimeout(() => {
         this._isPerformingProgrammaticMove = false;
-      }, 300);
+        this._lastProgrammaticMoveTime = Date.now();
+      }, 500);
     });
   }
 }
