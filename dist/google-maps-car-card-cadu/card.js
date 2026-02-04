@@ -865,74 +865,21 @@ class GoogleMapsCarCardCadu extends HTMLElement {
   _setupMapInteractionListeners() {
     if (!this._map) return;
     
-    // Detectar quando o usuário começa a arrastar o mapa
-    // dragstart é SEMPRE iniciado pelo usuário, nunca programaticamente
-    google.maps.event.addListener(this._map, "dragstart", () => {
-      // Pausar IMEDIATAMENTE quando arrastar
-      // Só ignorar se REALMENTE estiver em movimento programático neste exato momento
-      if (!this._isPerformingProgrammaticMove) {
-        this._handleUserInteraction();
-      }
+    // Detectar QUALQUER interação do usuário com o mapa
+    // Mousedown = clique do mouse ou arrastar
+    this.mapContainer.addEventListener("mousedown", () => {
+      this._handleUserInteraction();
     });
     
-    // Detectar zoom manual através do mousewheel
-    this.mapContainer.addEventListener("wheel", (e) => {
-      if (!this._isPerformingProgrammaticMove) {
-        const now = Date.now();
-        const timeSinceLastProgrammatic = this._lastProgrammaticMoveTime 
-          ? (now - this._lastProgrammaticMoveTime) 
-          : Infinity;
-        
-        // Para wheel, manter pequena proteção de 300ms
-        if (timeSinceLastProgrammatic > 300) {
-          this._handleUserInteraction();
-        }
-      }
+    // Touchstart = toque em dispositivos móveis
+    this.mapContainer.addEventListener("touchstart", () => {
+      this._handleUserInteraction();
     }, { passive: true });
     
-    // Detectar cliques em todos os controles do mapa (zoom e pan)
-    // Usar MutationObserver para detectar quando os controles são adicionados
-    const setupControlListeners = () => {
-      // Detectar todos os botões do Google Maps
-      const allButtons = this.mapContainer.querySelectorAll('button');
-      
-      allButtons.forEach(button => {
-        // Evitar adicionar múltiplos listeners
-        if (!button.hasAttribute('data-interaction-listener')) {
-          button.setAttribute('data-interaction-listener', 'true');
-          
-          button.addEventListener("click", () => {
-            if (!this._isPerformingProgrammaticMove) {
-              const now = Date.now();
-              const timeSinceLastProgrammatic = this._lastProgrammaticMoveTime 
-                ? (now - this._lastProgrammaticMoveTime) 
-                : Infinity;
-              
-              // Para botões, proteção de 300ms
-              if (timeSinceLastProgrammatic > 300) {
-                this._handleUserInteraction();
-              }
-            }
-          });
-        }
-      });
-    };
-    
-    // Executar após o mapa carregar
-    setTimeout(setupControlListeners, 1000);
-    
-    // Observar mudanças no DOM para capturar controles adicionados dinamicamente
-    const observer = new MutationObserver(() => {
-      setupControlListeners();
-    });
-    
-    observer.observe(this.mapContainer, {
-      childList: true,
-      subtree: true
-    });
-    
-    // Guardar referência para cleanup se necessário
-    this._mapControlsObserver = observer;
+    // Wheel = scroll do mouse para zoom
+    this.mapContainer.addEventListener("wheel", () => {
+      this._handleUserInteraction();
+    }, { passive: true });
   }
 
   _handleUserInteraction() {
