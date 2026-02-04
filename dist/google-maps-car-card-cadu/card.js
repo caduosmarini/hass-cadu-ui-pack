@@ -868,26 +868,25 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     // Detectar quando o usuário começa a arrastar o mapa
     // dragstart é SEMPRE iniciado pelo usuário, nunca programaticamente
     google.maps.event.addListener(this._map, "dragstart", () => {
-      // Só processar se passar tempo suficiente desde último movimento programático
-      const now = Date.now();
-      const timeSinceLastProgrammatic = this._lastProgrammaticMoveTime 
-        ? (now - this._lastProgrammaticMoveTime) 
-        : Infinity;
-      
-      if (timeSinceLastProgrammatic > 1000) {
+      // Pausar IMEDIATAMENTE quando arrastar
+      // Só ignorar se REALMENTE estiver em movimento programático neste exato momento
+      if (!this._isPerformingProgrammaticMove) {
         this._handleUserInteraction();
       }
     });
     
     // Detectar zoom manual através do mousewheel
     this.mapContainer.addEventListener("wheel", (e) => {
-      const now = Date.now();
-      const timeSinceLastProgrammatic = this._lastProgrammaticMoveTime 
-        ? (now - this._lastProgrammaticMoveTime) 
-        : Infinity;
-      
-      if (timeSinceLastProgrammatic > 1000) {
-        this._handleUserInteraction();
+      if (!this._isPerformingProgrammaticMove) {
+        const now = Date.now();
+        const timeSinceLastProgrammatic = this._lastProgrammaticMoveTime 
+          ? (now - this._lastProgrammaticMoveTime) 
+          : Infinity;
+        
+        // Para wheel, manter pequena proteção de 300ms
+        if (timeSinceLastProgrammatic > 300) {
+          this._handleUserInteraction();
+        }
       }
     }, { passive: true });
     
@@ -903,13 +902,16 @@ class GoogleMapsCarCardCadu extends HTMLElement {
           button.setAttribute('data-interaction-listener', 'true');
           
           button.addEventListener("click", () => {
-            const now = Date.now();
-            const timeSinceLastProgrammatic = this._lastProgrammaticMoveTime 
-              ? (now - this._lastProgrammaticMoveTime) 
-              : Infinity;
-            
-            if (timeSinceLastProgrammatic > 1000) {
-              this._handleUserInteraction();
+            if (!this._isPerformingProgrammaticMove) {
+              const now = Date.now();
+              const timeSinceLastProgrammatic = this._lastProgrammaticMoveTime 
+                ? (now - this._lastProgrammaticMoveTime) 
+                : Infinity;
+              
+              // Para botões, proteção de 300ms
+              if (timeSinceLastProgrammatic > 300) {
+                this._handleUserInteraction();
+              }
             }
           });
         }
