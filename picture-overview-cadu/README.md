@@ -78,8 +78,10 @@ O editor visual do card apresenta as mesmas opcoes do YAML: imagem (url/local ou
   - `position`: `bottom` (barra inferior) ou `top` (canto superior direito).
   - `show_condition`: Template Jinja condicional (opcional). Se o resultado for verdadeiro (`true`, `yes`, `1` ou texto nao vazio), a entidade e exibida; se for falso (`false`, `no`, `0` ou vazio), a entidade fica oculta. Ex.: `{{ is_state('input_boolean.modo_noturno', 'on') }}`.
   - `decimals`: Numero de casas decimais quando o estado for numerico (padrao: 1).
-  - `background_color`: Cor de fundo do chip (RGB array ou string hex, opcional). Suporta transparência: `[255, 255, 255, 0.5]` ou `rgba(255, 255, 255, 0.5)`.
-  - `background_color_opacity`: Opacidade do fundo em porcentagem 0-100 (opcional). Quando definido, sobrescreve o canal alpha da cor e aplica esta opacidade.
+  - `background_color`: Cor de fundo do chip (seletor de cor na UI; no YAML: RGB array, hex ou rgba). Na UI use junto com **Opacidade do fundo** para transparência.
+  - `background_color_opacity`: Opacidade do fundo em % (0 = transparente, 100 = opaco). Na UI aparece como "Opacidade do fundo (%)". Opcional; se não preencher, a cor é usada como está (ou use no YAML `#RRGGBBAA` / `rgba()`).
+  - `border_width`: Espessura da borda em px (0 = sem borda, 0.1 a 2). Float.
+  - `border_color`: Cor da borda (opcional). Se `border_width` > 0 e não informar, usa branco semi-transparente.
   - `text_color`: Cor do texto do chip (RGB array ou string hex, opcional). Suporta transparência.
   - `icon`: Icone customizado (opcional). Se nao definido, usa o icone da entidade.
   - `entity`: Entidade.

@@ -1,4 +1,4 @@
-const ENTITY_FIELD_ORDER = ["entity", "name", "icon", "show_state", "show_condition", "position", "decimals", "background_color", "background_color_opacity", "text_color", "tap_action"];
+const ENTITY_FIELD_ORDER = ["entity", "name", "icon", "show_state", "show_condition", "position", "decimals", "background_color", "background_color_opacity", "border_width", "border_color", "text_color", "tap_action"];
 
 function normalizeColor(colorValue) {
   if (!colorValue) {
@@ -48,7 +48,19 @@ function normalizeColor(colorValue) {
   }
 
   if (typeof colorValue === "string" && colorValue.trim() !== "") {
-    return colorValue.trim();
+    const str = colorValue.trim();
+    // Hex 8 digitos (#RRGGBBAA) -> rgba para suportar transparência
+    const hex8 = str.match(/^#([0-9a-fA-F]{8})$/);
+    if (hex8) {
+      const hex = hex8[1];
+      const r = parseInt(hex.slice(0, 2), 16);
+      const g = parseInt(hex.slice(2, 4), 16);
+      const b = parseInt(hex.slice(4, 6), 16);
+      const a = parseInt(hex.slice(6, 8), 16) / 255;
+      return `rgba(${r}, ${g}, ${b}, ${a})`;
+    }
+    // Hex 6 ou 3 digitos: manter como está
+    return str;
   }
   return "";
 }
@@ -65,6 +77,8 @@ function normalizeEntityConfig(entityConfig) {
       decimals: 1,
       background_color: "",
       background_color_opacity: null,
+      border_width: 0,
+      border_color: "",
       text_color: "",
       tap_action: {},
     };
@@ -72,7 +86,8 @@ function normalizeEntityConfig(entityConfig) {
 
   try {
     const numericKeys = Object.keys(entityConfig).filter((key) => /^\d+$/.test(key));
-    const opacity = entityConfig.background_color_opacity;
+    const op = entityConfig.background_color_opacity;
+    const bw = entityConfig.border_width;
     const normalized = {
       entity: entityConfig.entity || "",
       name: entityConfig.name || "",
@@ -82,7 +97,9 @@ function normalizeEntityConfig(entityConfig) {
       position: entityConfig.position || "bottom",
       decimals: Number.isFinite(entityConfig.decimals) ? entityConfig.decimals : 1,
       background_color: normalizeColor(entityConfig.background_color),
-      background_color_opacity: Number.isFinite(opacity) ? Math.max(0, Math.min(100, opacity)) : null,
+      background_color_opacity: op !== undefined && op !== null && Number.isFinite(Number(op)) ? Math.max(0, Math.min(100, Number(op))) : null,
+      border_width: bw !== undefined && bw !== null && Number.isFinite(Number(bw)) ? Math.max(0, Math.min(2, Number(bw))) : 0,
+      border_color: normalizeColor(entityConfig.border_color),
       text_color: normalizeColor(entityConfig.text_color),
       tap_action: entityConfig.tap_action || {},
     };
@@ -109,7 +126,8 @@ function normalizeEntityConfig(entityConfig) {
     return normalized;
   } catch (error) {
     console.error("Erro ao normalizar entidade:", error, entityConfig);
-    const opacityFallback = entityConfig.background_color_opacity;
+    const op = entityConfig.background_color_opacity;
+    const bw = entityConfig.border_width;
     return {
       entity: entityConfig.entity || "",
       name: entityConfig.name || "",
@@ -119,7 +137,9 @@ function normalizeEntityConfig(entityConfig) {
       position: entityConfig.position || "bottom",
       decimals: Number.isFinite(entityConfig.decimals) ? entityConfig.decimals : 1,
       background_color: normalizeColor(entityConfig.background_color),
-      background_color_opacity: Number.isFinite(opacityFallback) ? Math.max(0, Math.min(100, opacityFallback)) : null,
+      background_color_opacity: op !== undefined && op !== null && Number.isFinite(Number(op)) ? Math.max(0, Math.min(100, Number(op))) : null,
+      border_width: bw !== undefined && bw !== null && Number.isFinite(Number(bw)) ? Math.max(0, Math.min(2, Number(bw))) : 0,
+      border_color: normalizeColor(entityConfig.border_color),
       text_color: normalizeColor(entityConfig.text_color),
       tap_action: entityConfig.tap_action || {},
       ...entityConfig,
@@ -127,22 +147,26 @@ function normalizeEntityConfig(entityConfig) {
   }
 }
 
+/** Aplica opacidade (0-100) a uma cor #hex ou rgba(); retorna rgba(). */
 function colorWithOpacity(colorStr, opacityPercent) {
-  if (!colorStr || typeof colorStr !== "string" || !Number.isFinite(opacityPercent)) {
-    return colorStr || "";
+  if (!colorStr || typeof colorStr !== "string") return colorStr || "";
+  const num = Number(opacityPercent);
+  if (!Number.isFinite(num)) return colorStr;
+  const alpha = Math.max(0, Math.min(1, num / 100));
+  const toByte = (v) => Math.max(0, Math.min(255, Number(v) || 0));
+  const hex6 = colorStr.match(/^#([0-9a-fA-F]{6})$/);
+  if (hex6) {
+    const h = hex6[1];
+    return `rgba(${parseInt(h.slice(0, 2), 16)}, ${parseInt(h.slice(2, 4), 16)}, ${parseInt(h.slice(4, 6), 16)}, ${alpha})`;
   }
-  const alpha = Math.max(0, Math.min(1, opacityPercent / 100));
-  const hexMatch = colorStr.match(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/);
-  if (hexMatch) {
-    const hex = hexMatch[1];
-    const r = hex.length === 3 ? parseInt(hex[0] + hex[0], 16) : parseInt(hex.slice(0, 2), 16);
-    const g = hex.length === 3 ? parseInt(hex[1] + hex[1], 16) : parseInt(hex.slice(2, 4), 16);
-    const b = hex.length === 3 ? parseInt(hex[2] + hex[2], 16) : parseInt(hex.slice(4, 6), 16);
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  const hex8 = colorStr.match(/^#([0-9a-fA-F]{8})$/);
+  if (hex8) {
+    const h = hex8[1];
+    return `rgba(${parseInt(h.slice(0, 2), 16)}, ${parseInt(h.slice(2, 4), 16)}, ${parseInt(h.slice(4, 6), 16)}, ${alpha})`;
   }
-  const rgbaMatch = colorStr.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*[\d.]+)?\s*\)/);
-  if (rgbaMatch) {
-    return `rgba(${rgbaMatch[1]}, ${rgbaMatch[2]}, ${rgbaMatch[3]}, ${alpha})`;
+  const rgba = colorStr.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*[\d.]+)?\s*\)/);
+  if (rgba) {
+    return `rgba(${rgba[1]}, ${rgba[2]}, ${rgba[3]}, ${alpha})`;
   }
   return colorStr;
 }

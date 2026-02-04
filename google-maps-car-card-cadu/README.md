@@ -99,12 +99,21 @@ API key, entidades, rastro, modo noturno, transito, seguir, rotacao, limites de 
 
 ### Controles na interface
 
-- **Rotacao**: Ativa/desativa a rotacao do marcador.
-- **Seta**: Exibe/oculta a seta de direcao na caixa de info (mantem velocidade/altitude).
+O card possui uma barra de controles moderna e compacta:
+
+**Barra superior:**
+- **Ícones das entidades (esquerda)**: Clique no ícone de cada veículo para mostrar/ocultar no mapa. Ícones inativos ficam em escala de cinza.
+- **Botão "⚙️ Opções" (direita)**: Abre um menu suspenso com as seguintes opções:
+
+**Menu de opções:**
+- **Trânsito**: Ativa/desativa a camada de tráfego do Google Maps.
+- **Modo Noturno**: Aplica tema escuro ao mapa.
 - **Seguir**: Centraliza automaticamente o mapa nas entidades. Quando ativo:
-  - Se voce mover ou dar zoom no mapa manualmente, o seguir e pausado temporariamente.
-  - Apos 10 segundos sem interacao, o seguir e reativado automaticamente.
+  - Se você mover ou dar zoom no mapa manualmente, o seguir é pausado temporariamente.
+  - Após 10 segundos sem interação, o seguir é reativado automaticamente.
   - Desmarcar e remarcar o checkbox cancela a pausa.
+- **Rotação**: Ativa/desativa a rotação automática dos ícones dos veículos.
+- **Seta**: Exibe/oculta a seta de direção na caixa de info (mantém velocidade/altitude).
 
 ## Desenvolvimento
 

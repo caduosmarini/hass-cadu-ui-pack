@@ -34,6 +34,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     this._followPausedByUser = false; // Seguir pausado por interação do usuário
     this._followResumeTimer = null; // Timer para retomar o seguir
     this._isPerformingProgrammaticMove = false; // Flag para ignorar eventos durante movimento programático
+    this._optionsMenuOpen = false; // Estado do menu de opções
     this._updateStyles();
   }
 
@@ -100,8 +101,8 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       .map-controls {
         display: flex;
         ${showTopControls ? "" : "display: none;"}
-        flex-wrap: wrap;
-        gap: 8px;
+        justify-content: space-between;
+        align-items: center;
         background: rgba(0, 0, 0, 0.7);
         color: #fff;
         padding: 8px 12px;
@@ -109,24 +110,108 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         font-size: 12px;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
         margin-bottom: 0;
+        position: relative;
       }
-      .map-controls label {
+      .map-controls-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 1;
+      }
+      .map-controls-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .entity-icon-button {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        border: 2px solid transparent;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        object-fit: cover;
+        background: rgba(255, 255, 255, 0.1);
+      }
+      .entity-icon-button:hover {
+        border-color: #fff;
+        transform: scale(1.1);
+      }
+      .entity-icon-button.inactive {
+        opacity: 0.4;
+        filter: grayscale(100%);
+      }
+      .options-button {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        color: #fff;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        transition: all 0.2s ease;
         display: flex;
         align-items: center;
         gap: 6px;
+      }
+      .options-button:hover {
+        background: rgba(255, 255, 255, 0.2);
+      }
+      .options-button.active {
+        background: rgba(255, 255, 255, 0.3);
+      }
+      .options-menu {
+        position: absolute;
+        top: 100%;
+        right: 12px;
+        margin-top: 4px;
+        background: rgba(0, 0, 0, 0.9);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 6px;
+        padding: 12px;
+        min-width: 200px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        display: none;
+      }
+      .options-menu.open {
+        display: block;
+      }
+      .options-menu label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
         cursor: pointer;
         white-space: nowrap;
+        padding: 8px;
+        border-radius: 4px;
+        transition: background 0.2s ease;
       }
-      .map-controls .entity-toggle {
-        display: flex;
-        align-items: center;
-        gap: 6px;
+      .options-menu label:hover {
+        background: rgba(255, 255, 255, 0.1);
+      }
+      .options-menu input[type="checkbox"] {
+        cursor: pointer;
+        width: 16px;
+        height: 16px;
+      }
+      .options-menu-separator {
+        height: 1px;
+        background: rgba(255, 255, 255, 0.2);
+        margin: 8px 0;
       }
       @media (max-width: 768px) {
         .map-controls {
-          flex-direction: column;
-          gap: 6px;
           padding: 6px 8px;
+        }
+        .entity-icon-button {
+          width: 35px;
+          height: 35px;
+        }
+        .options-menu {
+          right: 8px;
+          left: 8px;
+          min-width: auto;
         }
       }
       ${hideMapCredits ? `
@@ -1114,6 +1199,60 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       return;
     }
 
+    // Container esquerdo - ícones das entidades
+    const leftContainer = document.createElement("div");
+    leftContainer.className = "map-controls-left";
+
+    if (this._config.entities) {
+      this._config.entities.forEach((entityConfig) => {
+        if (entityConfig.condition) {
+          return; // Pular entidades com condition
+        }
+        
+        const entityState = this._hass?.states?.[entityConfig.entity];
+        const isVisible = this._uiState.entityVisibility[entityConfig.entity] !== false;
+        
+        // Usar a imagem da entidade
+        const imageUrl = entityConfig.image || entityState?.attributes?.entity_picture || "";
+        
+        if (imageUrl) {
+          const iconButton = document.createElement("img");
+          iconButton.className = `entity-icon-button${isVisible ? "" : " inactive"}`;
+          iconButton.src = imageUrl;
+          iconButton.title = this._getEntityDisplayName(entityConfig, entityState);
+          
+          iconButton.addEventListener("click", () => {
+            this._uiState.entityVisibility[entityConfig.entity] = !isVisible;
+            this._saveUIState();
+            this._renderControls();
+            this._addOrUpdateMarker(entityConfig);
+          });
+          
+          leftContainer.appendChild(iconButton);
+        }
+      });
+    }
+
+    // Container direito - botão de opções
+    const rightContainer = document.createElement("div");
+    rightContainer.className = "map-controls-right";
+
+    const optionsButton = document.createElement("button");
+    optionsButton.className = `options-button${this._optionsMenuOpen ? " active" : ""}`;
+    optionsButton.innerHTML = "⚙️ Opções";
+    optionsButton.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this._optionsMenuOpen = !this._optionsMenuOpen;
+      this._renderControls();
+    });
+
+    rightContainer.appendChild(optionsButton);
+
+    // Menu de opções (suspenso)
+    const optionsMenu = document.createElement("div");
+    optionsMenu.className = `options-menu${this._optionsMenuOpen ? " open" : ""}`;
+
+    // Opção: Trânsito
     const trafficLabel = document.createElement("label");
     const trafficCheckbox = document.createElement("input");
     trafficCheckbox.type = "checkbox";
@@ -1133,9 +1272,10 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       this._toggleTrafficLayer();
     });
     trafficLabel.appendChild(trafficCheckbox);
-    trafficLabel.appendChild(document.createTextNode("Transito"));
-    this.controlsContainer.appendChild(trafficLabel);
+    trafficLabel.appendChild(document.createTextNode("Trânsito"));
+    optionsMenu.appendChild(trafficLabel);
 
+    // Opção: Modo Noturno
     const nightLabel = document.createElement("label");
     const nightCheckbox = document.createElement("input");
     nightCheckbox.type = "checkbox";
@@ -1155,9 +1295,10 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       this._applyNightMode();
     });
     nightLabel.appendChild(nightCheckbox);
-    nightLabel.appendChild(document.createTextNode("Modo noturno"));
-    this.controlsContainer.appendChild(nightLabel);
+    nightLabel.appendChild(document.createTextNode("Modo Noturno"));
+    optionsMenu.appendChild(nightLabel);
 
+    // Opção: Seguir
     const followLabel = document.createElement("label");
     const followCheckbox = document.createElement("input");
     followCheckbox.type = "checkbox";
@@ -1189,8 +1330,14 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     });
     followLabel.appendChild(followCheckbox);
     followLabel.appendChild(document.createTextNode("Seguir"));
-    this.controlsContainer.appendChild(followLabel);
+    optionsMenu.appendChild(followLabel);
 
+    // Separador
+    const separator = document.createElement("div");
+    separator.className = "options-menu-separator";
+    optionsMenu.appendChild(separator);
+
+    // Opção: Rotação
     const rotateLabel = document.createElement("label");
     const rotateCheckbox = document.createElement("input");
     rotateCheckbox.type = "checkbox";
@@ -1207,8 +1354,10 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     });
     rotateLabel.appendChild(rotateCheckbox);
     rotateLabel.appendChild(document.createTextNode("Rotação"));
-    this.controlsContainer.appendChild(rotateLabel);
+    optionsMenu.appendChild(rotateLabel);
 
+    // Opção: Seta
+    const arrowLabel = document.createElement("label");
     const arrowCheckbox = document.createElement("input");
     arrowCheckbox.type = "checkbox";
     arrowCheckbox.checked = this._uiState.arrowEnabled;
@@ -1221,33 +1370,26 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         });
       }
     });
-    const arrowLabel = document.createElement("label");
     arrowLabel.appendChild(arrowCheckbox);
     arrowLabel.appendChild(document.createTextNode("Seta"));
-    this.controlsContainer.appendChild(arrowLabel);
+    optionsMenu.appendChild(arrowLabel);
 
-    if (this._config.entities) {
-      this._config.entities.forEach((entityConfig) => {
-        if (entityConfig.condition) {
-          return;
-        }
-        const entityState = this._hass?.states?.[entityConfig.entity];
-        const entityLabel = this._getEntityDisplayName(entityConfig, entityState);
-        const entityToggle = document.createElement("label");
-        entityToggle.className = "entity-toggle";
-        const entityCheckbox = document.createElement("input");
-        entityCheckbox.type = "checkbox";
-        entityCheckbox.checked = this._uiState.entityVisibility[entityConfig.entity] !== false;
-        entityCheckbox.addEventListener("change", () => {
-          this._uiState.entityVisibility[entityConfig.entity] = entityCheckbox.checked;
-          this._saveUIState();
-          this._addOrUpdateMarker(entityConfig);
-        });
-        entityToggle.appendChild(entityCheckbox);
-        entityToggle.appendChild(document.createTextNode(entityLabel));
-        this.controlsContainer.appendChild(entityToggle);
-      });
+    // Montar a estrutura
+    this.controlsContainer.appendChild(leftContainer);
+    this.controlsContainer.appendChild(rightContainer);
+    this.controlsContainer.appendChild(optionsMenu);
+
+    // Adicionar listener para fechar o menu quando clicar fora
+    if (this._optionsMenuOpen) {
+      setTimeout(() => {
+        document.addEventListener("click", this._closeOptionsMenu.bind(this), { once: true });
+      }, 0);
     }
+  }
+
+  _closeOptionsMenu() {
+    this._optionsMenuOpen = false;
+    this._renderControls();
   }
 
   _getArrowFromRotation(rotation) {

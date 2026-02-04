@@ -271,11 +271,19 @@ class PictureOverviewCadu extends HTMLElement {
       const overlayEntity = document.createElement("div");
       overlayEntity.className = "overlay-entity";
       
-      // Aplicar cores customizadas
-      const bgColor = entityConfig.background_color || "rgba(255, 255, 255, 0.25)";
+      const baseBg = entityConfig.background_color || "rgba(255, 255, 255, 0.25)";
+      const bgColor = entityConfig.background_color_opacity != null
+        ? colorWithOpacity(baseBg, entityConfig.background_color_opacity)
+        : baseBg;
       const textColor = entityConfig.text_color || "#fff";
       overlayEntity.style.background = bgColor;
       overlayEntity.style.color = textColor;
+      const borderPx = Number(entityConfig.border_width);
+      if (borderPx > 0) {
+        overlayEntity.style.borderWidth = `${borderPx}px`;
+        overlayEntity.style.borderStyle = "solid";
+        overlayEntity.style.borderColor = entityConfig.border_color || "rgba(255,255,255,0.5)";
+      }
       
       overlayEntity.addEventListener("click", (event) => {
         event.stopPropagation();
@@ -361,7 +369,7 @@ class PictureOverviewCadu extends HTMLElement {
         const overlayEntity = document.createElement("div");
         overlayEntity.className = "overlay-entity";
         
-        // Aplicar cores customizadas (com opacidade se definida)
+      // Cor de fundo: se tiver opacidade na UI, aplica; senao usa cor (ou #RRGGBBAA do YAML)
         const baseBg = entityConfig.background_color || "rgba(255, 255, 255, 0.25)";
         const bgColor = entityConfig.background_color_opacity != null
           ? colorWithOpacity(baseBg, entityConfig.background_color_opacity)
@@ -369,6 +377,12 @@ class PictureOverviewCadu extends HTMLElement {
         const textColor = entityConfig.text_color || "#fff";
         overlayEntity.style.background = bgColor;
         overlayEntity.style.color = textColor;
+        const borderPx = Number(entityConfig.border_width);
+        if (borderPx > 0) {
+          overlayEntity.style.borderWidth = `${borderPx}px`;
+          overlayEntity.style.borderStyle = "solid";
+          overlayEntity.style.borderColor = entityConfig.border_color || "rgba(255,255,255,0.5)";
+        }
         
         overlayEntity.addEventListener("click", (event) => {
           event.stopPropagation();

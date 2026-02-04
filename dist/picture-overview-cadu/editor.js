@@ -210,12 +210,20 @@ class PictureOverviewCaduEditor extends HTMLElement {
                 selector: { number: { min: 0, max: 4, step: 1 } },
               },
               background_color: {
-                label: "Cor de fundo (opcional)",
+                label: "Cor de fundo",
                 selector: { color_rgb: {} },
               },
               background_color_opacity: {
-                label: "Opacidade do fundo (0-100, opcional)",
+                label: "Opacidade do fundo (%) — 0 transparente, 100 opaco",
                 selector: { number: { min: 0, max: 100, step: 5, unit_of_measurement: "%" } },
+              },
+              border_width: {
+                label: "Borda (px) — 0 sem borda, 0.1 a 2",
+                selector: { number: { min: 0, max: 2, step: 0.1, unit_of_measurement: "px" } },
+              },
+              border_color: {
+                label: "Cor da borda (opcional)",
+                selector: { color_rgb: {} },
               },
               text_color: {
                 label: "Cor do texto (opcional)",
