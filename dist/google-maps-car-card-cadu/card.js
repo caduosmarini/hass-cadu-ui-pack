@@ -12,6 +12,9 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     this.mapContainer = document.createElement("div");
     this.mapContainer.id = "map";
     this.shadowRoot.appendChild(this.mapContainer);
+    this.followCountdownElement = document.createElement("div");
+    this.followCountdownElement.className = "follow-countdown";
+    this.shadowRoot.appendChild(this.followCountdownElement);
     this.markers = {}; // Armazena marcadores por entidade
     this.infoBoxes = {}; // Armazena InfoBoxes por entidade
     this.lastPositions = {}; // Armazena a ultima posicao de cada entidade
@@ -33,6 +36,8 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     };
     this._followPausedByUser = false; // Seguir pausado por interação do usuário
     this._followResumeTimer = null; // Timer para retomar o seguir
+    this._followResumeTime = null; // Timestamp de quando o seguir será retomado
+    this._followCountdownInterval = null; // Interval para atualizar o contador
     this._isPerformingProgrammaticMove = false; // Flag para ignorar eventos durante movimento programático
     this._optionsMenuOpen = false; // Estado do menu de opções
     this._updateStyles();
@@ -199,6 +204,35 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         height: 1px;
         background: rgba(255, 255, 255, 0.2);
         margin: 8px 0;
+      }
+      .follow-countdown {
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        background: rgba(0, 0, 0, 0.8);
+        color: #fff;
+        padding: 8px 14px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 500;
+        z-index: 100;
+        opacity: 0;
+        transform: translateY(10px);
+        transition: opacity 0.3s ease, transform 0.3s ease;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        pointer-events: none;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .follow-countdown.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      .follow-countdown::before {
+        content: "⏱️";
+        font-size: 14px;
       }
       @media (max-width: 768px) {
         .map-controls {
@@ -754,15 +788,35 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       // Pausar o seguir
       this._followPausedByUser = true;
       
-      // Limpar timer anterior se existir
+      // Limpar timer e interval anteriores se existirem
       if (this._followResumeTimer) {
         clearTimeout(this._followResumeTimer);
       }
+      if (this._followCountdownInterval) {
+        clearInterval(this._followCountdownInterval);
+      }
+      
+      // Definir tempo de retomada (10 segundos)
+      this._followResumeTime = Date.now() + 10000;
+      
+      // Mostrar e atualizar o contador
+      this._updateFollowCountdown();
+      this._followCountdownInterval = setInterval(() => {
+        this._updateFollowCountdown();
+      }, 100); // Atualizar a cada 100ms para suavidade
       
       // Reiniciar timer de 10 segundos para retomar o seguir
       this._followResumeTimer = setTimeout(() => {
         this._followPausedByUser = false;
         this._followResumeTimer = null;
+        this._followResumeTime = null;
+        
+        // Parar o contador
+        if (this._followCountdownInterval) {
+          clearInterval(this._followCountdownInterval);
+          this._followCountdownInterval = null;
+        }
+        this._hideFollowCountdown();
         
         // Retomar o seguir
         if (this._shouldFollow()) {
@@ -774,6 +828,27 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     // Adicionar listeners para diferentes tipos de interação
     google.maps.event.addListener(this._map, "dragstart", handleUserInteraction);
     google.maps.event.addListener(this._map, "zoom_changed", handleUserInteraction);
+  }
+
+  _updateFollowCountdown() {
+    if (!this.followCountdownElement || !this._followResumeTime) return;
+    
+    const remainingMs = this._followResumeTime - Date.now();
+    
+    if (remainingMs <= 0) {
+      this._hideFollowCountdown();
+      return;
+    }
+    
+    const remainingSeconds = Math.ceil(remainingMs / 1000);
+    // O emoji já está no CSS ::before, então só adicionar o texto
+    this.followCountdownElement.innerHTML = `Retomando em ${remainingSeconds}s`;
+    this.followCountdownElement.classList.add("visible");
+  }
+
+  _hideFollowCountdown() {
+    if (!this.followCountdownElement) return;
+    this.followCountdownElement.classList.remove("visible");
   }
 
   _applyNightMode() {
@@ -1323,6 +1398,12 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         clearTimeout(this._followResumeTimer);
         this._followResumeTimer = null;
       }
+      if (this._followCountdownInterval) {
+        clearInterval(this._followCountdownInterval);
+        this._followCountdownInterval = null;
+      }
+      this._followResumeTime = null;
+      this._hideFollowCountdown();
       
       if (this._shouldFollow()) {
         this._fitMapBounds();
