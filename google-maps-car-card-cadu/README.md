@@ -87,7 +87,7 @@ O card usa o editor YAML do Home Assistant para a configuração. As opções **
 - `transito_on`: (Opcional) Liga/desliga o transito quando nao usa entidade. Padrao: `false`.
 - `modo_noturno_on`: (Opcional) Liga/desliga o modo noturno quando nao usa entidade. Padrao: `false`.
 - `seguir_on`: (Opcional) Liga/desliga o seguir quando nao usa entidade. Padrao: `false`.
-- `ajuste_zoom_seguir`: (Opcional) Soma níveis ao zoom automático do modo Seguir, depois do limite padrão de 18. Valores positivos aproximam e negativos afastam. Ex.: `2` aproxima dois níveis; `-2` afasta dois. Padrão: `0`. Não altera o zoom manual.
+- `ajuste_zoom_seguir`: (Opcional) Soma níveis ao zoom automático do modo Seguir, depois do limite padrão de 18. Valores positivos aproximam e negativos afastam. Aceita frações de zoom: `0.25` aproxima um quarto de nível; `-0.25` afasta um quarto. Padrão: `0`. Não altera o zoom manual.
 - `rotacao_on`: (Opcional) Liga/desliga a rotacao quando o menu superior estiver oculto. Padrao: `false`.
 - `prever_movimento`: (Opcional) Suaviza a chegada de novos pontos e avanca visualmente o carro por ate 4 segundos usando a velocidade e a direcao dos ultimos pontos. Padrao: `true`; use `false` para mostrar somente a posicao GPS recebida. Precisa de `velocidade` na entidade para a previsao entre pontos.
 - `historico_somente_rastro`: (Opcional) Carrega histórico apenas se o rastro estiver ativo. Padrao: `true`.
@@ -135,7 +135,7 @@ O card possui uma barra de controles moderna e compacta:
   - Clique no indicador para retomar o seguir imediatamente, sem esperar.
   - Após 10 segundos sem interação, o seguir é reativado automaticamente.
   - Desmarcar e remarcar o checkbox cancela a pausa e o indicador.
-- **Zoom relativo**: Soma ou subtrai níveis do zoom automático do Seguir. O valor inicial vem de `ajuste_zoom_seguir` no YAML.
+- **Zoom relativo**: Soma ou subtrai níveis do zoom automático do Seguir em passos de `0.25`. O valor inicial vem de `ajuste_zoom_seguir` no YAML.
 - **Prever movimento**: Liga ou desliga a animação do carro entre posições GPS. O estado inicial vem de `prever_movimento` no YAML.
 - Ajustes feitos no menu são salvos neste navegador e prevalecem sobre os valores iniciais do YAML enquanto o menu estiver visível.
 - **Rotação**: Ativa/desativa a rotação automática dos ícones dos veículos.

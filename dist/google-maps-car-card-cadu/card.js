@@ -1060,6 +1060,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     this._map = new google.maps.Map(this.mapContainer, {
       center: { lat: -30.0277, lng: -51.2287 }, // Exemplo inicial, sera ajustado
       zoom: 17, // Zoom inicial
+      isFractionalZoomEnabled: true,
       streetViewControl: false, // Desabilita o controle de Street View
       mapTypeControl: this._config.mostrar_tipo_mapa !== false,
       mapTypeId: this._config.tipo_mapa || "roadmap",
@@ -1882,7 +1883,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     zoomInput.type = "number";
     zoomInput.min = "-10";
     zoomInput.max = "10";
-    zoomInput.step = "1";
+    zoomInput.step = "0.25";
     zoomInput.value = String(this._getFollowZoomOffset());
     zoomInput.setAttribute("aria-label", "Zoom relativo ao seguir");
     zoomInput.addEventListener("change", (e) => {
@@ -1892,7 +1893,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         zoomInput.value = String(this._getFollowZoomOffset());
         return;
       }
-      const offset = Math.max(-10, Math.min(10, Math.round(value)));
+      const offset = Math.max(-10, Math.min(10, Math.round(value * 4) / 4));
       zoomInput.value = String(offset);
       this._uiState.followZoomOverride = true;
       this._uiState.followZoomOffset = offset;
