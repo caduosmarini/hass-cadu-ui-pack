@@ -138,6 +138,7 @@ O card possui uma barra de controles moderna e compacta:
 - **Zoom relativo**: Soma ou subtrai níveis do zoom automático do Seguir em passos de `0.25`. O valor inicial vem de `ajuste_zoom_seguir` no YAML.
 - **Prever movimento**: Liga ou desliga a animação do carro entre posições GPS. O estado inicial vem de `prever_movimento` no YAML.
 - Ajustes feitos no menu são salvos neste navegador e prevalecem sobre os valores iniciais do YAML enquanto o menu estiver visível.
+- Ao abrir o mapa em tela cheia, o menu de opções e o botão de retomar o Seguir continuam disponíveis.
 - **Rotação**: Ativa/desativa a rotação automática dos ícones dos veículos.
 - **Seta**: Exibe/oculta a seta de direção na caixa de info (mantém velocidade/altitude).
 

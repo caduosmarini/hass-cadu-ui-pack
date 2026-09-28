@@ -137,19 +137,27 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       this.fullscreenDialog.close();
       return;
     }
+    this.fullscreenDialog.appendChild(this.controlsContainer);
     this.fullscreenDialog.appendChild(this.mapShell);
+    this.fullscreenDialog.appendChild(this.followCountdownElement);
     try {
       this.fullscreenDialog.showModal();
       this._updateFullscreenButton();
       this._resizeMap();
     } catch (error) {
-      this.shadowRoot.insertBefore(this.mapShell, this.fullscreenDialog);
+      this._restoreFullscreenContent();
       console.error("Nao foi possivel abrir o mapa em tela cheia:", error);
     }
   }
 
   _closeFullscreen() {
+    this._restoreFullscreenContent();
+  }
+
+  _restoreFullscreenContent() {
     this.shadowRoot.insertBefore(this.mapShell, this.fullscreenDialog);
+    this.shadowRoot.insertBefore(this.controlsContainer, this.mapShell);
+    this.shadowRoot.appendChild(this.followCountdownElement);
     this._updateFullscreenButton();
     this._resizeMap();
   }
@@ -212,6 +220,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         stroke-linejoin: round;
       }
       .fullscreen-dialog {
+        position: fixed;
         inset: 0;
         width: 100vw;
         max-width: none;
@@ -223,14 +232,31 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         margin: 0;
         overflow: hidden;
       }
+      .fullscreen-dialog[open] {
+        display: flex;
+        flex-direction: column;
+      }
       .fullscreen-dialog::backdrop {
         background: rgba(0, 0, 0, 0.75);
       }
-      .fullscreen-dialog .map-shell,
+      .fullscreen-dialog .map-controls {
+        flex: 0 0 auto;
+        z-index: 3;
+        border-radius: 0;
+      }
+      .fullscreen-dialog .map-shell {
+        flex: 1 1 auto;
+        min-height: 0;
+        width: 100%;
+      }
       .fullscreen-dialog #map {
         width: 100%;
         height: 100%;
         border-radius: 0;
+      }
+      .fullscreen-dialog .follow-countdown {
+        bottom: max(12px, env(safe-area-inset-bottom));
+        left: max(12px, env(safe-area-inset-left));
       }
       .fullscreen-dialog .fullscreen-button {
         top: max(10px, env(safe-area-inset-top));
