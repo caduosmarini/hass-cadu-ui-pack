@@ -1,6 +1,7 @@
 #!/usr/bin/env pwsh
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$PSNativeCommandUseErrorActionPreference = $true
 
 function Require-Command {
     param(

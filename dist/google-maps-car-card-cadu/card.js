@@ -9,9 +9,22 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     this.controlsContainer = document.createElement("div");
     this.controlsContainer.className = "map-controls";
     this.shadowRoot.appendChild(this.controlsContainer);
+    this.mapShell = document.createElement("div");
+    this.mapShell.className = "map-shell";
+    this.shadowRoot.appendChild(this.mapShell);
     this.mapContainer = document.createElement("div");
     this.mapContainer.id = "map";
-    this.shadowRoot.appendChild(this.mapContainer);
+    this.mapShell.appendChild(this.mapContainer);
+    this.fullscreenButton = document.createElement("button");
+    this.fullscreenButton.type = "button";
+    this.fullscreenButton.className = "fullscreen-button";
+    this.fullscreenButton.addEventListener("click", () => this._toggleFullscreen());
+    this.mapShell.appendChild(this.fullscreenButton);
+    this.fullscreenDialog = document.createElement("dialog");
+    this.fullscreenDialog.className = "fullscreen-dialog";
+    this.fullscreenDialog.addEventListener("close", () => this._closeFullscreen());
+    this.shadowRoot.appendChild(this.fullscreenDialog);
+    this._updateFullscreenButton();
     
     // Criar elemento do contador circular
     this.followCountdownElement = document.createElement("div");
@@ -73,6 +86,8 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     this.markers = {}; // Armazena marcadores por entidade
     this.infoBoxes = {}; // Armazena InfoBoxes por entidade
     this.lastPositions = {}; // Armazena a ultima posicao de cada entidade
+    this._motion = {}; // Posicoes exibidas e ultima leitura real por entidade
+    this._motionFrame = null;
     this.trails = {}; // Armazena rastro por entidade
     this.trailPolylines = {}; // Armazena polylines do rastro por entidade
     this._lastMapTypeOptions = null;
@@ -99,6 +114,44 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     this._updateStyles();
   }
 
+  _updateFullscreenButton() {
+    const expanded = this.fullscreenDialog.open;
+    this.fullscreenButton.title = expanded ? "Sair da tela cheia" : "Abrir em tela cheia";
+    this.fullscreenButton.setAttribute("aria-label", this.fullscreenButton.title);
+    this.fullscreenButton.setAttribute("aria-pressed", String(expanded));
+    this.fullscreenButton.innerHTML = expanded
+      ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3v6H3m12-6v6h6M3 15h6v6m12-6h-6v6"/></svg>'
+      : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9V3h6m6 0h6v6M3 15v6h6m12-6v6h-6"/></svg>';
+  }
+
+  _toggleFullscreen() {
+    if (this.fullscreenDialog.open) {
+      this.fullscreenDialog.close();
+      return;
+    }
+    this.fullscreenDialog.appendChild(this.mapShell);
+    try {
+      this.fullscreenDialog.showModal();
+      this._updateFullscreenButton();
+      this._resizeMap();
+    } catch (error) {
+      this.shadowRoot.insertBefore(this.mapShell, this.fullscreenDialog);
+      console.error("Nao foi possivel abrir o mapa em tela cheia:", error);
+    }
+  }
+
+  _closeFullscreen() {
+    this.shadowRoot.insertBefore(this.mapShell, this.fullscreenDialog);
+    this._updateFullscreenButton();
+    this._resizeMap();
+  }
+
+  _resizeMap() {
+    requestAnimationFrame(() => {
+      if (this._map) google.maps.event.trigger(this._map, "resize");
+    });
+  }
+
   _updateStyles() {
     const maxHeight = this._config?.max_height || null;
     const maxWidth = this._config?.max_width || null;
@@ -120,6 +173,60 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         display: block;
         position: relative;
         ${widthStyle}
+      }
+      .map-shell {
+        position: relative;
+      }
+      .fullscreen-button {
+        display: ${this._config?.mostrar_tela_cheia === false ? "none" : "grid"};
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 2;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        padding: 8px;
+        border: 0;
+        border-radius: 4px;
+        background: #fff;
+        color: #333;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        cursor: pointer;
+      }
+      .fullscreen-button svg {
+        width: 24px;
+        height: 24px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .fullscreen-dialog {
+        inset: 0;
+        width: 100vw;
+        max-width: none;
+        height: 100vh;
+        height: 100dvh;
+        max-height: none;
+        padding: 0;
+        border: 0;
+        margin: 0;
+        overflow: hidden;
+      }
+      .fullscreen-dialog::backdrop {
+        background: rgba(0, 0, 0, 0.75);
+      }
+      .fullscreen-dialog .map-shell,
+      .fullscreen-dialog #map {
+        width: 100%;
+        height: 100%;
+        border-radius: 0;
+      }
+      .fullscreen-dialog .fullscreen-button {
+        top: max(10px, env(safe-area-inset-top));
+        right: max(10px, env(safe-area-inset-right));
       }
       #map {
         width: 100%;
@@ -615,6 +722,123 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     }
   }
 
+  disconnectedCallback() {
+    if (this._motionFrame !== null) {
+      cancelAnimationFrame(this._motionFrame);
+      this._motionFrame = null;
+    }
+  }
+
+  connectedCallback() {
+    if (this._config && Object.keys(this._motion).length) this._scheduleMotionFrame();
+  }
+
+  _distanceMeters(a, b) {
+    const lat = ((a.lat + b.lat) / 2) * Math.PI / 180;
+    const north = (b.lat - a.lat) * 111320;
+    const east = (b.lng - a.lng) * 111320 * Math.cos(lat);
+    return Math.hypot(north, east);
+  }
+
+  _positionForMotion(motion, now) {
+    if (this._config.prever_movimento === false) return motion.real;
+    const age = Math.max(0, now - motion.receivedAt);
+    const moving = motion.heading !== null && motion.speed > 3;
+    const meters = moving ? Math.min(motion.speed / 3.6 * Math.min(age, 4000) / 1000, 80) : 0;
+    const lat = motion.real.lat + meters * Math.sin(motion.heading) / 111320;
+    const lng = motion.real.lng + meters * Math.cos(motion.heading) /
+      (111320 * Math.max(0.01, Math.cos(motion.real.lat * Math.PI / 180)));
+    const target = { lat, lng };
+    if (!motion.from || age >= 800) return target;
+    const part = age / 800;
+    return {
+      lat: motion.from.lat + (target.lat - motion.from.lat) * part,
+      lng: motion.from.lng + (target.lng - motion.from.lng) * part,
+    };
+  }
+
+  _setDisplayedPosition(entityId, position) {
+    const motion = this._motion[entityId];
+    if (motion) motion.displayed = position;
+    const marker = this.markers[entityId];
+    const latLng = new google.maps.LatLng(position.lat, position.lng);
+    if (marker instanceof google.maps.Marker) marker.setPosition(latLng);
+    else if (marker) {
+      marker.position = latLng;
+      marker.draw();
+    }
+    const infoBox = this.infoBoxes[entityId];
+    if (infoBox) {
+      infoBox.position = latLng;
+      infoBox.draw();
+    }
+  }
+
+  _scheduleMotionFrame() {
+    if (this._motionFrame !== null || !this.isConnected || this._config.prever_movimento === false) return;
+    this._motionFrame = requestAnimationFrame(() => {
+      this._motionFrame = null;
+      if (!this.isConnected || this._config.prever_movimento === false) return;
+      const now = Date.now();
+      let active = false;
+      Object.entries(this._motion).forEach(([entityId, motion]) => {
+        if (!this.markers[entityId]) return;
+        const age = now - motion.receivedAt;
+        if (age > 4000 && age > 800) return;
+        this._setDisplayedPosition(entityId, this._positionForMotion(motion, now));
+        if (age < 4000 && (motion.heading !== null && motion.speed > 3 || age < 800)) active = true;
+      });
+      if (active) this._scheduleMotionFrame();
+    });
+  }
+
+  _updateMotion(entityId, location, entityConfig, entity) {
+    const real = { lat: location.lat(), lng: location.lng() };
+    const previous = this._motion[entityId];
+    const now = Date.now();
+    const changed = !previous || this._distanceMeters(previous.real, real) > 0.5;
+    if (!changed) {
+      if (this._config.prever_movimento === false) {
+        previous.displayed = real;
+        return real;
+      }
+      const currentSpeed = entityConfig.velocidade && this._hass.states[entityConfig.velocidade];
+      const currentKmh = currentSpeed?.attributes?.unit_of_measurement === "m/s"
+        ? Number(currentSpeed.state) * 3.6 : Number(currentSpeed?.state);
+      if (previous.speed > 3 && currentKmh <= 3) {
+        previous.from = previous.displayed;
+        previous.receivedAt = now;
+        previous.heading = null;
+        previous.speed = 0;
+        this._scheduleMotionFrame();
+      }
+      return previous.displayed || real;
+    }
+    const speedState = entityConfig.velocidade && this._hass.states[entityConfig.velocidade];
+    const unit = speedState?.attributes?.unit_of_measurement;
+    const speed = unit === "m/s" ? Number(speedState.state) * 3.6 : Number(speedState?.state);
+    const speedTime = Date.parse(speedState?.last_updated || "");
+    const freshSpeed = Number.isFinite(speedTime) && now - speedTime < 30000;
+    const distance = previous ? this._distanceMeters(previous.real, real) : 0;
+    const heading = previous && distance >= 5 && distance <= 500
+      ? Math.atan2((real.lat - previous.real.lat),
+        (real.lng - previous.real.lng) * Math.cos(real.lat * Math.PI / 180))
+      : null;
+    const sampleTime = Date.parse(entity.last_updated || "");
+    const freshPosition = Number.isFinite(sampleTime) && now - sampleTime < 10000;
+    const from = previous?.displayed && distance <= 250 ? previous.displayed : null;
+    this._motion[entityId] = {
+      real,
+      displayed: from || real,
+      from: this._config.prever_movimento !== false ? from : null,
+      receivedAt: now,
+      heading: freshPosition && freshSpeed ? heading : null,
+      speed: freshSpeed && Number.isFinite(speed) && speed > 0 && speed <= 160 ? speed : 0,
+    };
+    if (this._config.prever_movimento !== false) this._scheduleMotionFrame();
+    return this._motion[entityId].displayed;
+  }
+
   setConfig(config) {
     try {
       // Normalizar configuração ao receber ANTES de armazenar
@@ -642,7 +866,10 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         transito_on: this._config.transito_on === true,
         modo_noturno_on: this._config.modo_noturno_on === true,
         seguir_on: this._config.seguir_on === true,
+        ajuste_zoom_seguir: Number.isFinite(Number(this._config.ajuste_zoom_seguir))
+          ? Number(this._config.ajuste_zoom_seguir) : 0,
         rotacao_on: this._config.rotacao_on === true,
+        prever_movimento: this._config.prever_movimento !== false,
         historico_somente_rastro: this._config.historico_somente_rastro !== false,
         historico_carregar_no_start: this._config.historico_carregar_no_start !== false,
         historico_recarregar: this._config.historico_recarregar === true,
@@ -694,6 +921,9 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         this._uiState.rotateImageEnabled = this._config.rotacao_on === true;
       }
       this._initializeEntityVisibility();
+      if (!this._config.mostrar_tela_cheia && this.fullscreenDialog.open) {
+        this.fullscreenDialog.close();
+      }
       
       // Atualizar estilos com novos valores de altura/largura
       this._updateStyles();
@@ -718,6 +948,11 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       
       if (!this._config.api_key) {
         this.mapContainer.innerHTML = '<div style="padding: 20px; color: white;">Configure a API Key do Google Maps</div>';
+        return;
+      }
+
+      if (this._map) {
+        this._updateMap();
         return;
       }
       
@@ -772,13 +1007,12 @@ class GoogleMapsCarCardCadu extends HTMLElement {
 
   _applyMapControlsOptions() {
     if (!this._map) return;
-    const fullscreenControl = this._config.mostrar_tela_cheia !== false;
     const zoomControl = this._config.mostrar_controles_navegacao !== false;
-    const key = `${fullscreenControl}|${zoomControl}`;
+    const key = `${zoomControl}`;
     if (this._lastMapControlsOptions === key) return;
     this._lastMapControlsOptions = key;
     this._map.setOptions({
-      fullscreenControl,
+      fullscreenControl: false,
       zoomControl,
     });
   }
@@ -796,7 +1030,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       streetViewControl: false, // Desabilita o controle de Street View
       mapTypeControl: this._config.mostrar_tipo_mapa !== false,
       mapTypeId: this._config.tipo_mapa || "roadmap",
-      fullscreenControl: this._config.mostrar_tela_cheia !== false,
+      fullscreenControl: false,
       zoomControl: this._config.mostrar_controles_navegacao !== false,
     });
     
@@ -1158,6 +1392,8 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         entity.attributes.latitude,
         entity.attributes.longitude
       );
+      const displayed = this._updateMotion(entityConfig.entity, location, entityConfig, entity);
+      const displayLocation = new google.maps.LatLng(displayed.lat, displayed.lng);
       let marker = this.markers[entityConfig.entity];
       const infoBoxText = this._getInfoBoxText(entityConfig);
 
@@ -1240,7 +1476,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
           // Mas o usuario pediu para "ficar o mesmo de quando n ta rotacionando" (tamanho e tal)
           
           marker = new google.maps.OverlayView();
-          marker.position = location;
+          marker.position = displayLocation;
           marker.rotation = cssRotation;
           marker.imageUrl = iconUrl;
           
@@ -1299,7 +1535,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
           marker.setMap(this._map);
           this.markers[entityConfig.entity] = marker;
         } else {
-          marker.position = location;
+          marker.position = displayLocation;
           marker.rotation = cssRotation;
           
           // Update image if changed
@@ -1323,7 +1559,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
           };
 
           marker = new google.maps.Marker({
-            position: location,
+            position: displayLocation,
             map: this._map,
             title: markerTitle,
             icon: icon,
@@ -1331,7 +1567,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
 
           this.markers[entityConfig.entity] = marker;
         } else {
-          marker.setPosition(location);
+          marker.setPosition(displayLocation);
           marker.setTitle(markerTitle);
         }
       }
@@ -1343,6 +1579,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
 
       // Add new InfoBox
       const infoBox = new google.maps.OverlayView();
+      infoBox.position = displayLocation;
       infoBox.onAdd = function () {
         const div = document.createElement("div");
         div.className = "info-box";
@@ -1363,7 +1600,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       infoBox._parent = this;
       infoBox.draw = function () {
         const overlayProjection = this.getProjection();
-        const position = overlayProjection.fromLatLngToDivPixel(location);
+        const position = overlayProjection.fromLatLngToDivPixel(this.position);
         const div = this.div_;
         
         let xOffset = 0;
@@ -1411,6 +1648,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         this._centerOnMarkerWithPadding(location);
       }
     } else {
+      delete this._motion[entityConfig.entity];
       if (this.markers[entityConfig.entity]) {
         this.markers[entityConfig.entity].setMap(null);
         delete this.markers[entityConfig.entity];
@@ -1742,16 +1980,20 @@ class GoogleMapsCarCardCadu extends HTMLElement {
 
     // Listener para apos ajuste dos limites
     google.maps.event.addListenerOnce(this._map, "bounds_changed", () => {
-      const maxZoom = 18; // Define o zoom maximo que voce deseja permitir
-      if (this._map.getZoom() > maxZoom) {
-        this._map.setZoom(maxZoom);
-      }
+      this._applyFollowZoomAdjustment();
     });
     
     // Usar evento 'idle' para garantir que o mapa terminou de animar
     google.maps.event.addListenerOnce(this._map, "idle", () => {
       this._isPerformingProgrammaticMove = false;
     });
+  }
+
+  _applyFollowZoomAdjustment() {
+    const baseZoom = Math.min(this._map.getZoom(), 18);
+    const offset = this._shouldFollow() ? this._config.ajuste_zoom_seguir : 0;
+    const zoom = Math.max(0, Math.min(22, baseZoom + offset));
+    if (this._map.getZoom() !== zoom) this._map.setZoom(zoom);
   }
 
   _centerOnMarkerWithPadding(location) {
@@ -1779,10 +2021,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     
     // Limitar zoom máximo
     google.maps.event.addListenerOnce(this._map, "bounds_changed", () => {
-      const maxZoom = 18;
-      if (this._map.getZoom() > maxZoom) {
-        this._map.setZoom(maxZoom);
-      }
+      this._applyFollowZoomAdjustment();
       
       // Desmarcar movimento programático após conclusão com delay maior
       setTimeout(() => {

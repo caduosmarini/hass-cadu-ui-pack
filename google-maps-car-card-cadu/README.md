@@ -23,6 +23,8 @@ Se instalar manualmente em `/www`, use `url: /local/hass-cadu-ui-pack.js`.
 type: "custom:google-maps-car-card-cadu"
 api_key: "SUA_GOOGLE_MAPS_API_KEY"
 follow_entity: input_boolean.seguir_mapa
+ajuste_zoom_seguir: 0
+prever_movimento: true
 entities:
   - entity: person.meu_dispositivo
     image: /local/imagens/carro.png
@@ -68,7 +70,9 @@ API key, entidades, rastro, modo noturno, transito, seguir, rotacao, limites de 
 - `transito_on`: (Opcional) Liga/desliga o transito quando nao usa entidade. Padrao: `false`.
 - `modo_noturno_on`: (Opcional) Liga/desliga o modo noturno quando nao usa entidade. Padrao: `false`.
 - `seguir_on`: (Opcional) Liga/desliga o seguir quando nao usa entidade. Padrao: `false`.
+- `ajuste_zoom_seguir`: (Opcional) Soma níveis ao zoom automático do modo Seguir, depois do limite padrão de 18. Valores positivos aproximam e negativos afastam. Ex.: `2` aproxima dois níveis; `-2` afasta dois. Padrão: `0`. Não altera o zoom manual.
 - `rotacao_on`: (Opcional) Liga/desliga a rotacao quando o menu superior estiver oculto. Padrao: `false`.
+- `prever_movimento`: (Opcional) Suaviza a chegada de novos pontos e avanca visualmente o carro por ate 4 segundos usando a velocidade e a direcao dos ultimos pontos. Padrao: `true`; use `false` para mostrar somente a posicao GPS recebida. Precisa de `velocidade` na entidade para a previsao entre pontos.
 - `historico_somente_rastro`: (Opcional) Carrega histórico apenas se o rastro estiver ativo. Padrao: `true`.
 - `historico_carregar_no_start`: (Opcional) Carrega histórico ao iniciar o card. Padrao: `true`.
 - `historico_recarregar`: (Opcional) Recarrega histórico ao alterar configuracao. Padrao: `false`.

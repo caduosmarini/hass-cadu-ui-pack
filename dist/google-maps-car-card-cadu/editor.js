@@ -78,7 +78,10 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
     formData.transito_on = formData.transito_on === true;
     formData.modo_noturno_on = formData.modo_noturno_on === true;
     formData.seguir_on = formData.seguir_on === true;
+    formData.ajuste_zoom_seguir = Number.isFinite(Number(formData.ajuste_zoom_seguir))
+      ? Number(formData.ajuste_zoom_seguir) : 0;
     formData.rotacao_on = formData.rotacao_on === true;
+    formData.prever_movimento = formData.prever_movimento !== false;
     formData.historico_somente_rastro = formData.historico_somente_rastro !== false;
     formData.historico_carregar_no_start = formData.historico_carregar_no_start !== false;
     formData.historico_recarregar = formData.historico_recarregar === true;
@@ -231,8 +234,18 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
         selector: { boolean: {} },
       },
       {
+        name: "ajuste_zoom_seguir",
+        label: "Ajuste do zoom ao seguir (+ aproxima, - afasta)",
+        selector: { number: { min: -10, max: 10, step: 1 } },
+      },
+      {
         name: "rotacao_on",
         label: "Rotação ligada (sem menu)",
+        selector: { boolean: {} },
+      },
+      {
+        name: "prever_movimento",
+        label: "Suavizar e prever movimento do carro",
         selector: { boolean: {} },
       },
       {
@@ -352,7 +365,10 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
         transito_on: config.transito_on === true,
         modo_noturno_on: config.modo_noturno_on === true,
         seguir_on: config.seguir_on === true,
+        ajuste_zoom_seguir: Number.isFinite(Number(config.ajuste_zoom_seguir))
+          ? Number(config.ajuste_zoom_seguir) : 0,
         rotacao_on: config.rotacao_on === true,
+        prever_movimento: config.prever_movimento !== false,
         historico_somente_rastro: config.historico_somente_rastro !== false,
         historico_carregar_no_start: config.historico_carregar_no_start !== false,
         historico_recarregar: config.historico_recarregar === true,
@@ -388,6 +404,8 @@ class GoogleMapsCarCardCaduEditor extends HTMLElement {
         transito_on: config.transito_on === true,
         modo_noturno_on: config.modo_noturno_on === true,
         seguir_on: config.seguir_on === true,
+        ajuste_zoom_seguir: Number.isFinite(Number(config.ajuste_zoom_seguir))
+          ? Number(config.ajuste_zoom_seguir) : 0,
         rotacao_on: config.rotacao_on === true,
         historico_somente_rastro: config.historico_somente_rastro !== false,
         historico_carregar_no_start: config.historico_carregar_no_start !== false,
