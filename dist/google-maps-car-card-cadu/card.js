@@ -102,6 +102,10 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       followOverride: false,
       rotateImageEnabled: false,
       arrowEnabled: true,
+      motionEnabled: true,
+      motionOverride: false,
+      followZoomOffset: 0,
+      followZoomOverride: false,
       entityVisibility: {},
     };
     this._followPausedByUser = false; // Seguir pausado por interação do usuário
@@ -363,6 +367,16 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         width: 16px;
         height: 16px;
       }
+      .options-menu input[type="number"] {
+        width: 56px;
+        margin-left: auto;
+        padding: 4px;
+        border: 1px solid rgba(255, 255, 255, 0.35);
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.1);
+        color: #fff;
+        font: inherit;
+      }
       .options-menu-separator {
         height: 1px;
         background: rgba(255, 255, 255, 0.2);
@@ -496,6 +510,11 @@ class GoogleMapsCarCardCadu extends HTMLElement {
             followOverride: parsed.followOverride === true,
             rotateImageEnabled: parsed.rotateImageEnabled === true,
             arrowEnabled: parsed.arrowEnabled !== false, // Padrão true
+            motionEnabled: parsed.motionEnabled !== false,
+            motionOverride: parsed.motionOverride === true,
+            followZoomOffset: Number.isFinite(Number(parsed.followZoomOffset))
+              ? Number(parsed.followZoomOffset) : 0,
+            followZoomOverride: parsed.followZoomOverride === true,
             entityVisibility: parsed.entityVisibility || {},
           };
         }
@@ -741,7 +760,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
   }
 
   _positionForMotion(motion, now) {
-    if (this._config.prever_movimento === false) return motion.real;
+    if (!this._isMotionEnabled()) return motion.real;
     const age = Math.max(0, now - motion.receivedAt);
     const moving = motion.heading !== null && motion.speed > 3;
     const meters = moving ? Math.min(motion.speed / 3.6 * Math.min(age, 4000) / 1000, 80) : 0;
@@ -775,10 +794,10 @@ class GoogleMapsCarCardCadu extends HTMLElement {
   }
 
   _scheduleMotionFrame() {
-    if (this._motionFrame !== null || !this.isConnected || this._config.prever_movimento === false) return;
+    if (this._motionFrame !== null || !this.isConnected || !this._isMotionEnabled()) return;
     this._motionFrame = requestAnimationFrame(() => {
       this._motionFrame = null;
-      if (!this.isConnected || this._config.prever_movimento === false) return;
+      if (!this.isConnected || !this._isMotionEnabled()) return;
       const now = Date.now();
       let active = false;
       Object.entries(this._motion).forEach(([entityId, motion]) => {
@@ -798,7 +817,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     const now = Date.now();
     const changed = !previous || this._distanceMeters(previous.real, real) > 0.5;
     if (!changed) {
-      if (this._config.prever_movimento === false) {
+      if (!this._isMotionEnabled()) {
         previous.displayed = real;
         return real;
       }
@@ -830,13 +849,27 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     this._motion[entityId] = {
       real,
       displayed: from || real,
-      from: this._config.prever_movimento !== false ? from : null,
+      from: this._isMotionEnabled() ? from : null,
       receivedAt: now,
       heading: freshPosition && freshSpeed ? heading : null,
       speed: freshSpeed && Number.isFinite(speed) && speed > 0 && speed <= 160 ? speed : 0,
     };
-    if (this._config.prever_movimento !== false) this._scheduleMotionFrame();
+    if (this._isMotionEnabled()) this._scheduleMotionFrame();
     return this._motion[entityId].displayed;
+  }
+
+  _isMotionEnabled() {
+    if (this._config.mostrar_menu !== false && this._uiState.motionOverride) {
+      return this._uiState.motionEnabled;
+    }
+    return this._config.prever_movimento !== false;
+  }
+
+  _getFollowZoomOffset() {
+    if (this._config.mostrar_menu !== false && this._uiState.followZoomOverride) {
+      return this._uiState.followZoomOffset;
+    }
+    return this._config.ajuste_zoom_seguir;
   }
 
   setConfig(config) {
@@ -1843,10 +1876,58 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     });
     optionsMenu.appendChild(followLabel);
 
+    // Ajuste relativo ao zoom escolhido automaticamente pelo modo Seguir.
+    const zoomLabel = document.createElement("label");
+    const zoomInput = document.createElement("input");
+    zoomInput.type = "number";
+    zoomInput.min = "-10";
+    zoomInput.max = "10";
+    zoomInput.step = "1";
+    zoomInput.value = String(this._getFollowZoomOffset());
+    zoomInput.setAttribute("aria-label", "Zoom relativo ao seguir");
+    zoomInput.addEventListener("change", (e) => {
+      e.stopPropagation();
+      const value = Number(zoomInput.value);
+      if (!Number.isFinite(value)) {
+        zoomInput.value = String(this._getFollowZoomOffset());
+        return;
+      }
+      const offset = Math.max(-10, Math.min(10, Math.round(value)));
+      zoomInput.value = String(offset);
+      this._uiState.followZoomOverride = true;
+      this._uiState.followZoomOffset = offset;
+      this._saveUIState();
+      if (this._shouldFollow()) this._fitMapBounds();
+    });
+    zoomLabel.appendChild(document.createTextNode("Zoom relativo"));
+    zoomLabel.appendChild(zoomInput);
+    optionsMenu.appendChild(zoomLabel);
+
     // Separador
     const separator = document.createElement("div");
     separator.className = "options-menu-separator";
     optionsMenu.appendChild(separator);
+
+    // O YAML define o padrão; o menu permite substituir por instância do card.
+    const motionLabel = document.createElement("label");
+    const motionCheckbox = document.createElement("input");
+    motionCheckbox.type = "checkbox";
+    motionCheckbox.checked = this._isMotionEnabled();
+    motionCheckbox.addEventListener("change", (e) => {
+      e.stopPropagation();
+      this._uiState.motionOverride = true;
+      this._uiState.motionEnabled = motionCheckbox.checked;
+      this._saveUIState();
+      if (this._motionFrame !== null) {
+        cancelAnimationFrame(this._motionFrame);
+        this._motionFrame = null;
+      }
+      this._motion = {};
+      this._updateMap();
+    });
+    motionLabel.appendChild(motionCheckbox);
+    motionLabel.appendChild(document.createTextNode("Prever movimento"));
+    optionsMenu.appendChild(motionLabel);
 
     // Opção: Rotação
     const rotateLabel = document.createElement("label");
@@ -1991,7 +2072,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
 
   _applyFollowZoomAdjustment() {
     const baseZoom = Math.min(this._map.getZoom(), 18);
-    const offset = this._shouldFollow() ? this._config.ajuste_zoom_seguir : 0;
+    const offset = this._shouldFollow() ? this._getFollowZoomOffset() : 0;
     const zoom = Math.max(0, Math.min(22, baseZoom + offset));
     if (this._map.getZoom() !== zoom) this._map.setZoom(zoom);
   }

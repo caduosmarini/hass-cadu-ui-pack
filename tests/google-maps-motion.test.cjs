@@ -22,6 +22,7 @@ card._config = { prever_movimento: true };
 card._hass = { states: { speed: { state: "72", last_updated: new Date().toISOString(), attributes: { unit_of_measurement: "km/h" } } } };
 card._motion = {};
 card._motionFrame = null;
+card._uiState = { motionOverride: false, followZoomOverride: false };
 card.isConnected = false;
 const location = (lat, lng) => new context.google.maps.LatLng(lat, lng);
 const entity = () => ({ last_updated: new Date().toISOString() });
@@ -62,5 +63,36 @@ zoom = 19;
 card._shouldFollow = () => false;
 card._applyFollowZoomAdjustment();
 assert.equal(zoom, 18, "offset has no effect outside follow mode");
+
+class Element {
+  constructor(tag) { this.tag = tag; this.children = []; this.listeners = {}; }
+  appendChild(child) { this.children.push(child); return child; }
+  addEventListener(name, listener) { this.listeners[name] = listener; }
+  setAttribute() {}
+}
+context.document = {
+  createElement: (tag) => new Element(tag),
+  createTextNode: (text) => ({ text }),
+};
+card.controlsContainer = new Element("div");
+card._config = { entities: [], prever_movimento: false, ajuste_zoom_seguir: -2 };
+card._uiState = { entityVisibility: {}, followZoomOverride: false, motionOverride: false };
+card._saveUIState = () => {};
+card._updateMap = () => {};
+card._renderControls();
+const menu = card.controlsContainer.children.find((child) => child.className.includes("options-menu"));
+const label = (name) => menu.children.find((child) => child.tag === "label" &&
+  child.children.some((part) => part.text === name));
+const zoomControl = label("Zoom relativo")?.children.find((child) => child.tag === "input");
+const motionControl = label("Prever movimento")?.children.find((child) => child.tag === "input");
+assert.ok(zoomControl && motionControl, "both controls exist in the card options menu");
+assert.equal(zoomControl.value, "-2", "menu starts with the YAML zoom offset");
+assert.equal(motionControl.checked, false, "menu starts with the YAML motion flag");
+zoomControl.value = "3";
+zoomControl.listeners.change({ stopPropagation() {} });
+assert.equal(card._getFollowZoomOffset(), 3, "menu zoom setting overrides the YAML default");
+motionControl.checked = true;
+motionControl.listeners.change({ stopPropagation() {} });
+assert.equal(card._isMotionEnabled(), true, "menu motion setting overrides the YAML default");
 
 console.log("Google Maps motion tests passed");

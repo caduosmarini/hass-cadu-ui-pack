@@ -56,10 +56,27 @@ grid_options:
   columns: full
 ```
 
-## Configuracao (UI)
+## Configuracao no dashboard
 
-O editor visual do card apresenta as mesmas opcoes do YAML:
-API key, entidades, rastro, modo noturno, transito, seguir, rotacao, limites de historico e tamanho do mapa.
+Em um dashboard do tipo **Seções**, coloque o card dentro de `cards:` de uma seção `grid`. Exemplo:
+
+```yaml
+sections:
+  - type: grid
+    column_span: 2
+    cards:
+      - type: custom:google-maps-car-card-cadu
+        api_key: SUA_GOOGLE_MAPS_API_KEY
+        entities:
+          - entity: device_tracker.meu_carro
+        grid_options:
+          columns: full
+          rows: auto
+```
+
+Se `type: custom:google-maps-car-card-cadu` ficar diretamente sob `sections:`, o Home Assistant trata o mapa como uma seção. Nesse caso, o menu de edição abre **Editar seção** e não mostra o botão de editar card ao passar o mouse.
+
+O card usa o editor YAML do Home Assistant para a configuração. As opções **Zoom relativo** e **Prever movimento** também estão no menu `⚙️ Opções` do próprio card.
 
 ## Opcoes
 
@@ -118,6 +135,9 @@ O card possui uma barra de controles moderna e compacta:
   - Clique no indicador para retomar o seguir imediatamente, sem esperar.
   - Após 10 segundos sem interação, o seguir é reativado automaticamente.
   - Desmarcar e remarcar o checkbox cancela a pausa e o indicador.
+- **Zoom relativo**: Soma ou subtrai níveis do zoom automático do Seguir. O valor inicial vem de `ajuste_zoom_seguir` no YAML.
+- **Prever movimento**: Liga ou desliga a animação do carro entre posições GPS. O estado inicial vem de `prever_movimento` no YAML.
+- Ajustes feitos no menu são salvos neste navegador e prevalecem sobre os valores iniciais do YAML enquanto o menu estiver visível.
 - **Rotação**: Ativa/desativa a rotação automática dos ícones dos veículos.
 - **Seta**: Exibe/oculta a seta de direção na caixa de info (mantém velocidade/altitude).
 
