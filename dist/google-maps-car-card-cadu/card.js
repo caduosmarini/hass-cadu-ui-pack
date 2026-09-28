@@ -92,6 +92,10 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     this.trailPolylines = {}; // Armazena polylines do rastro por entidade
     this._lastMapTypeOptions = null;
     this._lastMapControlsOptions = null;
+    this._lastNightMode = null;
+    this._lastTrafficEnabled = null;
+    this._lastFollowBoundsKey = null;
+    this._trailRenderKeys = {};
     this._historyLoaded = {};
     this._uiState = {
       trafficEnabled: false,
@@ -693,6 +697,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       polylines.forEach((line) => line.setMap(null));
     }
     delete this.trailPolylines[entityId];
+    delete this._trailRenderKeys[entityId];
   }
 
   _renderTrail(entityId, entityConfig) {
@@ -706,6 +711,8 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       this._clearTrail(entityId);
       return;
     }
+    const renderKey = `${cfg.color}|${points.map((point) => `${point.lat},${point.lng}`).join(";")}`;
+    if (this._trailRenderKeys[entityId] === renderKey) return;
     this._clearTrail(entityId);
     const polylines = [];
     const maxOpacity = 0.9;
@@ -729,6 +736,7 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       polylines.push(segment);
     }
     this.trailPolylines[entityId] = polylines;
+    this._trailRenderKeys[entityId] = renderKey;
   }
 
   set hass(hass) {
@@ -1056,6 +1064,10 @@ class GoogleMapsCarCardCadu extends HTMLElement {
 
   _initializeMap() {
     if (!this.mapContainer) return;
+
+    this._lastNightMode = null;
+    this._lastTrafficEnabled = null;
+    this._lastFollowBoundsKey = null;
     
     this._map = new google.maps.Map(this.mapContainer, {
       center: { lat: -30.0277, lng: -51.2287 }, // Exemplo inicial, sera ajustado
@@ -1110,7 +1122,15 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     });
 
     if (this._shouldFollow()) {
+      const boundsKey = Object.keys(this.markers).sort().map((entityId) => {
+        const position = this._motion[entityId]?.real;
+        return `${entityId}:${position?.lat},${position?.lng}`;
+      }).join("|");
+      if (boundsKey === this._lastFollowBoundsKey) return;
+      this._lastFollowBoundsKey = boundsKey;
       this._fitMapBounds();
+    } else {
+      this._lastFollowBoundsKey = null;
     }
   }
 
@@ -1378,6 +1398,8 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     ) {
       nightMode = true;
     }
+    if (nightMode === this._lastNightMode) return;
+    this._lastNightMode = nightMode;
     this._map.setOptions({
       styles: nightMode ? nightModeStyle : [],
     });
@@ -1401,6 +1423,8 @@ class GoogleMapsCarCardCadu extends HTMLElement {
     ) {
       trafficEnabled = true;
     }
+    if (trafficEnabled === this._lastTrafficEnabled) return;
+    this._lastTrafficEnabled = trafficEnabled;
     if (trafficEnabled) {
       this.trafficLayer.setMap(this._map);
     } else {
@@ -1606,81 +1630,56 @@ class GoogleMapsCarCardCadu extends HTMLElement {
         }
       }
 
-      // Remove existing InfoBox if it exists
-      if (this.infoBoxes[entityConfig.entity]) {
-        this.infoBoxes[entityConfig.entity].setMap(null);
+      // Preservar a caixa entre atualizações evita que ela desapareça a cada estado do HA.
+      const arrowHtml = this._uiState.arrowEnabled
+        ? `<div class="arrow-box">${arrow} <!-- seta --></div>`
+        : "";
+      const html = `${arrowHtml}${infoBoxText}`;
+      let infoBox = this.infoBoxes[entityConfig.entity];
+      if (!infoBox) {
+        infoBox = new google.maps.OverlayView();
+        infoBox.onAdd = function () {
+          const div = document.createElement("div");
+          div.className = "info-box";
+          div.innerHTML = this._html;
+          this.div_ = div;
+          this.getPanes().overlayLayer.appendChild(div);
+        };
+        infoBox.draw = function () {
+          const projection = this.getProjection();
+          const div = this.div_;
+          if (!projection || !div || !this.position) return;
+          const position = projection.fromLatLngToDivPixel(this.position);
+          if (!position) return;
+          let xOffset = 0;
+          let yOffset = this._shouldRotate ? -65 : -50;
+          if (this._shouldRotate && this._rotation !== 999) {
+            const radians = (180 - this._rotation) * Math.PI / 180;
+            xOffset = 65 * Math.sin(radians);
+            yOffset = -65 * Math.cos(radians);
+          }
+          div.style.left = `${position.x + xOffset}px`;
+          div.style.top = `${position.y + yOffset}px`;
+          div.style.transform = "translate(-50%, -50%)";
+        };
+        infoBox.onRemove = function () {
+          if (this.div_?.parentNode) this.div_.parentNode.removeChild(this.div_);
+          this.div_ = null;
+        };
+        this.infoBoxes[entityConfig.entity] = infoBox;
       }
-
-      // Add new InfoBox
-      const infoBox = new google.maps.OverlayView();
       infoBox.position = displayLocation;
-      infoBox.onAdd = function () {
-        const div = document.createElement("div");
-        div.className = "info-box";
-        const arrowHtml = this._parent._uiState.arrowEnabled 
-          ? `<div class="arrow-box">${arrow} <!-- seta --></div>` 
-          : "";
-        
-        div.innerHTML = `
-          ${arrowHtml}
-          ${infoBoxText}
-        `;
-        // <br> ${rotation} - ${deltaX} - ${deltaY}
-        this.div_ = div;
-        const panes = this.getPanes();
-        panes.overlayLayer.appendChild(div);
-      };
-      // Bind this context to access _uiState inside onAdd
-      infoBox._parent = this;
-      infoBox.draw = function () {
-        const overlayProjection = this.getProjection();
-        const position = overlayProjection.fromLatLngToDivPixel(this.position);
-        const div = this.div_;
-        
-        let xOffset = 0;
-        let yOffset = -50; // Padrão quando não há rotação
-        if (shouldRotate) {
-          yOffset = -65;
-        }
-        
-        // Se rotação ativada, calcular posição relativa ao "teto" do carro
-        if (shouldRotate && rotation !== 999) {
-             let cssRotation = 180 - rotation; // O mesmo calculo usado para a imagem
-             const radius = 65; // Distancia do centro aumentada para afastar do carro (antes 40)
-             const radiusy = radius;
-             
-             // Converter para radianos
-             const rad = cssRotation * (Math.PI / 180);
-             
-             // Calcular offsets baseados na rotação do CSS
-             // 0 graus (Original/Esquerda) -> x=0, y=-R (Cima)
-             // 180 graus (Direita) -> x=0, y=R (Baixo)
-             xOffset = radius * Math.sin(rad);
-             yOffset = -radiusy * Math.cos(rad);
-        }
-
-        div.style.left = `${position.x + xOffset}px`;
-        div.style.top = `${position.y + yOffset}px`;
-        
-        // Centralizar a div no ponto calculado
-        div.style.transform = "translate(-50%, -50%)";
-      };
-      infoBox.onRemove = function () {
-        this.div_.parentNode.removeChild(this.div_);
-        this.div_ = null;
-      };
-      infoBox.setMap(this._map);
-
-      // Store the new InfoBox
-      this.infoBoxes[entityConfig.entity] = infoBox;
-
+      infoBox._shouldRotate = shouldRotate;
+      infoBox._rotation = rotation;
+      if (infoBox._html !== html) {
+        infoBox._html = html;
+        if (infoBox.div_) infoBox.div_.innerHTML = html;
+      }
+      if (!infoBox.getMap()) infoBox.setMap(this._map);
+      else infoBox.draw();
       // Renderizar rastro se habilitado
       this._renderTrail(entityConfig.entity, entityConfig);
 
-      // Ajustar o centro do mapa se a opcao de seguir estiver ativada
-      if (this._shouldFollow()) {
-        this._centerOnMarkerWithPadding(location);
-      }
     } else {
       delete this._motion[entityConfig.entity];
       if (this.markers[entityConfig.entity]) {

@@ -43,11 +43,25 @@ if ([string]::IsNullOrWhiteSpace($lastTag)) {
 }
 
 Write-Host "Ultima tag: $lastTag"
-$tagName = Read-Host "Nome da nova tag/release"
+$suggestedTag = $null
+if ($lastTag -match '^(v?)(\d+(?:\.\d+)*\.)(\d+)$') {
+    $nextNumber = [System.Numerics.BigInteger]::Parse($Matches[3]) + [System.Numerics.BigInteger]::One
+    $suggestedTag = "$($Matches[1])$($Matches[2])$nextNumber"
+}
+
+$prompt = "Nome da nova tag/release"
+if ($suggestedTag) {
+    $prompt += " [$suggestedTag]"
+}
+$tagName = Read-Host $prompt
 
 if ([string]::IsNullOrWhiteSpace($tagName)) {
-    Write-Error "Nome da tag nao pode ser vazio."
-    exit 1
+    if (-not $suggestedTag) {
+        Write-Error "A ultima tag nao tem versao numerica. Informe o nome da nova tag."
+        exit 1
+    }
+    $tagName = $suggestedTag
+    Write-Host "Usando tag sugerida: $tagName"
 }
 
 $existingTag = git tag --list $tagName
