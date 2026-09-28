@@ -98,7 +98,7 @@ O card usa o editor YAML do Home Assistant para a configuração. As opções **
 - `mostrar_tipo_mapa`: (Opcional) Exibe/oculta os botoes Mapa/Satelite. Padrao: `true`.
 - `mostrar_tela_cheia`: (Opcional) Exibe/oculta o botao de tela cheia. Padrao: `true`.
 - `mostrar_controles_navegacao`: (Opcional) Exibe/oculta os controles de navegacao (zoom). Padrao: `true`.
-- `ocultar_creditos`: (Opcional) Oculta a barra inferior de termos/creditos. Padrao: `false`.
+- `ocultar_creditos`: (Opcional) Oculta a barra inferior de termos/creditos sem esconder os controles de zoom e Mapa/Satelite. Padrao: `false`.
 - `tipo_mapa`: (Opcional) Tipo inicial do mapa. Valores: `roadmap`, `satellite`, `hybrid`, `terrain`. Padrao: `roadmap`.
 - `entities`: Lista de entidades para exibir.
   - `entity`: Entidade com latitude/longitude.

@@ -475,11 +475,11 @@ class GoogleMapsCarCardCadu extends HTMLElement {
       }
       ${hideMapCredits ? `
       /* Oculta barra inferior/termos/creditos do Google Maps */
-      .gm-style-cc,
-      .gmnoprint,
+      .gm-style .gm-style-cc:has(button[aria-label="Dados do mapa"]),
+      .gm-style .gm-style-cc:has(a[href*="/help/terms_maps"]),
+      .gm-style .gm-style-cc:has(a[href*="/maps/"]),
       .gm-style a[href^="https://maps.google.com/maps"],
-      .gm-style a[href^="https://www.google.com/intl/"],
-      .gm-style .gm-style-cc {
+      .gm-style a[href^="https://www.google.com/intl/"] {
         display: none !important;
       }` : ""}
     `;
